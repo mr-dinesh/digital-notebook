@@ -212,8 +212,9 @@ wrangler dev              # local dev at http://localhost:8787
 - Single Cloudflare Worker (`worker.js`) that both serves the UI and handles API routes.
 - `GET /` — serves the full Argus HTML app (inlined into the worker).
 - `POST /fetch` — proxies article URLs server-side to avoid CORS issues, returns cleaned text.
-- `POST /analyse` — calls Cloudflare Workers AI (`env.AI`) with a structured prompt; returns JSON with `core_thesis`, `steelman`, `steelman_crux`, `strawman`, `strawman_crux`, `synthesis`, `real_crux`, `evidence_that_changes_it`, `actionable`.
+- `POST /analyse` — calls `@cf/meta/llama-3.1-8b-instruct` via Workers AI; returns JSON with `core_thesis`, `steelman`, `steelman_crux`, `strawman`, `strawman_crux`, `synthesis`, `real_crux`, `evidence_that_changes_it`, `actionable`.
 - Uses the `[ai]` binding in `wrangler.toml` — no external LLM API key needed; billed through Cloudflare Workers AI.
+- Rate limiting via KV: `RATE_LIMIT` KV namespace (configured in `wrangler.toml`) enforces 20 req/90 s on `/fetch` and 10 req/90 s on `/analyse` per IP. If `RATE_LIMIT` binding is absent, rate limiting is silently skipped.
 
 ---
 
@@ -244,7 +245,7 @@ python3 -m http.server 8080   # then open http://localhost:8080/blackout.html
 ```
 
 ### Architecture
-- Fully static single-file app (`blackout.html`). All logic runs in the browser; no backend.
+- Fully static single-file app (`blackout.html`). All logic runs in the browser; no backend. `index.html` is a one-line meta-redirect shim (`<meta http-equiv="refresh" content="0; url=blackout.html">`) required by Cloudflare Pages as the root entry point.
 - Fetches top 20 stories from the public HN Firebase API (no key needed).
 - Sends headlines to Groq (`llama-3.3-70b-versatile`, default) or Gemini; LLM returns JSON `{title, poem: [words]}`.
 - Tokenizer splits each headline into word tokens; matcher finds poem words via exact → case-insensitive → strip-punctuation fallback.

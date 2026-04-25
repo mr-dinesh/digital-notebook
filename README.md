@@ -15,5 +15,6 @@ A collection of small, self-contained projects built to solve actual problems.
 | `npp_quotes/` | 247 Notepad++ quotes extracted from C++ source | — |
 | `hn_blackout/` | Blackout poetry from Hacker News headlines | [live](https://hn-blackout.pages.dev/) |
 | `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor | [live](https://juicesec.mrdinesh.workers.dev/) |
+| `privyRead/` | Privacy-first reader — strips trackers, follows redirects, extracts clean article text | [live](https://privyread.pages.dev/) |
 
 Write-ups at [mrdee.in/vibecoding](https://mrdee.in/vibecoding/).

@@ -1,0 +1,85 @@
+# AFL++ dictionary for URL fuzzing
+# Extracted from curl lib/urlapi.c and IANA scheme list
+# Feed with: afl-fuzz -x dicts/url.dict ...
+
+# Schemes
+"http://"
+"https://"
+"ftp://"
+"ftps://"
+"sftp://"
+"scp://"
+"ldap://"
+"ldaps://"
+"dict://"
+"telnet://"
+"tftp://"
+"imap://"
+"imaps://"
+"smtp://"
+"smtps://"
+"pop3://"
+"pop3s://"
+"rtsp://"
+"rtmp://"
+"smb://"
+"gopher://"
+"file://"
+
+# Separators and special chars in URLs
+"://"
+"@"
+":"
+"/"
+"?"
+"&"
+"#"
+"%"
+"."
+"["
+"]"
+"+"
+"="
+
+# Percent-encoded sequences (common in traversal bugs)
+"%00"
+"%0d%0a"
+"%2f"
+"%2F"
+"%5c"
+"%5C"
+"%2e%2e"
+"%252f"
+"%c0%af"
+"%ef%bc%8f"
+
+# IDN / unicode
+"xn--"
+
+# IPv6 brackets
+"[::1]"
+"[::ffff:127.0.0.1]"
+"[fe80::1]"
+
+# Port edge cases
+":0"
+":80"
+":443"
+":65535"
+":65536"
+
+# Path tokens
+"/../"
+"/./"
+"//"
+"/..%2f"
+
+# Auth separators
+"user:pass@"
+":@"
+
+# Query/fragment
+"?a=b"
+"#"
+"&"
+";"

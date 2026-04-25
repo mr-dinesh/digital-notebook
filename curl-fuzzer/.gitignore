@@ -1,0 +1,14 @@
+# Build outputs
+build/
+src/
+
+# AFL++ output
+crashes/
+
+# Compiled harnesses
+harnesses/fuzz_url
+harnesses/fuzz_cookies
+harnesses/fuzz_socks5
+
+# Wrangler cache
+.wrangler/

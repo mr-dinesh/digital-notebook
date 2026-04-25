@@ -1,0 +1,1 @@
+Set-Cookie: a=b; Domain=EXAMPLE.COM; path=/

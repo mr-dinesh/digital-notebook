@@ -1,0 +1,1630 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AFL Masterclass — A Technical Deep Dive</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap');
+
+  /* ── THEMES ────────────────────────────────────────────── */
+  :root {
+    --bg:        #0f1117;
+    --surface:   #161b22;
+    --surface2:  #1c2128;
+    --border:    #21262d;
+    --accent:    #e6873a;
+    --ok:        #3fb950;
+    --bad:       #f85149;
+    --warn:      #d29922;
+    --text:      #c9d1d9;
+    --dim:       #6e7681;
+    --hi:        #f0f6fc;
+    --code-bg:   #0d1117;
+    --hl:        rgba(230,135,58,.1);
+    --shadow:    0 4px 20px rgba(0,0,0,.4);
+  }
+  [data-theme="light"] {
+    --bg:        #ffffff;
+    --surface:   #f6f8fa;
+    --surface2:  #eaeef2;
+    --border:    #d0d7de;
+    --accent:    #0969da;
+    --ok:        #1a7f37;
+    --bad:       #cf222e;
+    --warn:      #9a6700;
+    --text:      #24292f;
+    --dim:       #6e7781;
+    --hi:        #0d1117;
+    --code-bg:   #f6f8fa;
+    --hl:        rgba(9,105,218,.07);
+    --shadow:    0 4px 20px rgba(0,0,0,.12);
+  }
+  [data-theme="sepia"] {
+    --bg:        #f5efe6;
+    --surface:   #ede5d8;
+    --surface2:  #e4d9c9;
+    --border:    #cbbfa8;
+    --accent:    #7a4419;
+    --ok:        #3a6b35;
+    --bad:       #922b21;
+    --warn:      #7d5a00;
+    --text:      #3b2f2f;
+    --dim:       #7a6858;
+    --hi:        #1a0f0f;
+    --code-bg:   #ede5d8;
+    --hl:        rgba(122,68,25,.08);
+    --shadow:    0 4px 20px rgba(0,0,0,.1);
+  }
+
+  /* ── RESET ─────────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; font-size: 16px; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', system-ui, sans-serif;
+    line-height: 1.7;
+    padding-bottom: 120px;
+    transition: background .2s, color .2s;
+  }
+
+  /* ── STICKY PROGRESS BAR ───────────────────────────────── */
+  #progress-bar-wrap {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    z-index: 100;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    box-shadow: var(--shadow);
+  }
+  #progress-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--dim);
+    white-space: nowrap;
+  }
+  #progress-track {
+    flex: 1;
+    height: 6px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width .4s ease;
+    width: 0%;
+  }
+  #progress-pct {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    font-weight: 600;
+    min-width: 36px;
+    text-align: right;
+  }
+  #xp-display {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 2px 10px;
+    border-radius: 12px;
+    white-space: nowrap;
+  }
+  #xp-display span { color: var(--warn); font-weight: 600; }
+
+  /* ── THEME SWITCHER ────────────────────────────────────── */
+  #theme-switcher {
+    display: flex;
+    gap: 4px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 3px;
+    border-radius: 8px;
+  }
+  .theme-btn {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    border: 2px solid transparent;
+    cursor: pointer;
+    transition: border-color .15s;
+  }
+  .theme-btn.dark  { background: #0f1117; }
+  .theme-btn.light { background: #ffffff; border-color: var(--border); }
+  .theme-btn.sepia { background: #f5efe6; border-color: var(--border); }
+  .theme-btn.active { border-color: var(--accent) !important; }
+
+  /* ── LAYOUT ────────────────────────────────────────────── */
+  .main-wrap {
+    max-width: 820px;
+    margin: 0 auto;
+    padding: 80px 24px 0;
+  }
+
+  /* ── MASTHEAD ──────────────────────────────────────────── */
+  .masthead {
+    padding: 48px 0 40px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 48px;
+  }
+  .eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    font-weight: 700;
+    color: var(--hi);
+    line-height: 1.15;
+    letter-spacing: -.03em;
+    margin-bottom: 16px;
+  }
+  h1 em { color: var(--accent); font-style: normal; }
+  .subtitle {
+    font-size: 1rem;
+    color: var(--dim);
+    line-height: 1.6;
+    max-width: 580px;
+  }
+  .meta-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+  }
+  .meta-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 20px;
+    background: var(--surface);
+  }
+  .meta-pill span { color: var(--ok); }
+
+  /* ── MODULE STATS CARD ─────────────────────────────────── */
+  .stats-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 40px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 600;
+    color: var(--accent);
+    display: block;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-label {
+    font-size: 11px;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+  }
+  @media (max-width: 560px) {
+    .stats-card { grid-template-columns: repeat(2,1fr); }
+  }
+
+  /* ── TABLE OF CONTENTS ─────────────────────────────────── */
+  .toc {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px 28px;
+    margin-bottom: 56px;
+  }
+  .toc-title {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+  .toc ol { list-style: none; padding: 0; }
+  .toc ol li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .toc ol li:last-child { border-bottom: none; }
+  .toc-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 32px;
+  }
+  .toc ol li a {
+    color: var(--text);
+    text-decoration: none;
+    font-size: .92rem;
+    flex: 1;
+  }
+  .toc ol li a:hover { color: var(--accent); }
+  .toc-check {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px;
+    color: transparent;
+    transition: all .2s;
+    flex-shrink: 0;
+  }
+  .toc-check.done {
+    background: var(--ok);
+    border-color: var(--ok);
+    color: #fff;
+  }
+
+  /* ── SECTIONS ──────────────────────────────────────────── */
+  .section {
+    margin-bottom: 64px;
+    scroll-margin-top: 60px;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 6px;
+  }
+  .section-num {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: .08em;
+    flex-shrink: 0;
+  }
+  h2 {
+    font-size: 1.55rem;
+    font-weight: 700;
+    color: var(--hi);
+    letter-spacing: -.02em;
+    flex: 1;
+  }
+  .section-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .time-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .diff-badge {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+  }
+  .diff-intro { background: rgba(63,185,80,.12); color: var(--ok); }
+  .diff-mid   { background: rgba(214,153,22,.12); color: var(--warn); }
+  .diff-adv   { background: rgba(248,81,73,.12); color: var(--bad); }
+
+  .complete-btn {
+    margin-left: auto;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 5px 14px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    letter-spacing: .04em;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .complete-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .complete-btn.done  {
+    background: rgba(63,185,80,.12);
+    border-color: var(--ok);
+    color: var(--ok);
+  }
+  .section.completed .section-header h2 { opacity: .65; }
+  .section.completed .section-header h2::after {
+    content: ' ✓';
+    color: var(--ok);
+    font-size: .9em;
+  }
+
+  /* ── TYPOGRAPHY ────────────────────────────────────────── */
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--hi);
+    margin: 32px 0 12px;
+  }
+  h3::before { content: '▸ '; color: var(--accent); font-size: .85em; }
+  h4 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .78rem;
+    color: var(--ok);
+    text-transform: uppercase;
+    letter-spacing: .1em;
+    margin: 24px 0 8px;
+  }
+  p { margin-bottom: 16px; font-size: .97rem; }
+  strong { color: var(--hi); font-weight: 600; }
+  em { font-style: italic; color: var(--hi); }
+
+  ul.prose-list {
+    padding-left: 20px;
+    margin: 10px 0 18px;
+  }
+  ul.prose-list li {
+    margin-bottom: 6px;
+    font-size: .94rem;
+  }
+  ul.prose-list li::marker { color: var(--accent); }
+
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color .15s; }
+  a:hover { border-bottom-color: var(--accent); }
+
+  /* ── CODE ──────────────────────────────────────────────── */
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--ok);
+    padding: 18px 20px;
+    overflow-x: auto;
+    margin: 16px 0 24px;
+    border-radius: 6px;
+  }
+  pre code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: var(--text);
+    background: none;
+    padding: 0;
+  }
+  code {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .82em;
+    background: var(--surface2);
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: var(--ok);
+  }
+  .code-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--dim);
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  /* ── CALLOUTS ──────────────────────────────────────────── */
+  .callout {
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--bad);
+    background: rgba(248,81,73,.05);
+    padding: 16px 20px;
+    margin: 20px 0;
+    border-radius: 6px;
+  }
+  .callout.warn { border-left-color: var(--bad); }
+  .callout.insight { border-left-color: var(--accent); background: var(--hl); }
+  .callout.green { border-left-color: var(--ok); background: rgba(63,185,80,.05); }
+  .callout-head {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+  .callout.warn    .callout-head { color: var(--bad); }
+  .callout.insight .callout-head { color: var(--accent); }
+  .callout.green   .callout-head { color: var(--ok); }
+  .callout p { margin-bottom: 0; font-size: .93rem; }
+  .callout p + p { margin-top: 8px; }
+
+  /* ── TABLE ─────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 28px;
+    font-size: .86rem;
+  }
+  th {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+  td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: top;
+    line-height: 1.5;
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--hl); }
+  td:first-child {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .8rem;
+    color: var(--hi);
+    white-space: nowrap;
+  }
+  .good { color: var(--ok); }
+  .bad  { color: var(--bad); }
+  .meh  { color: var(--warn); }
+
+  /* ── ALGO STEPS ────────────────────────────────────────── */
+  .algo-steps {
+    counter-reset: step;
+    list-style: none;
+    padding: 0;
+    margin: 14px 0 24px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .algo-steps li {
+    counter-increment: step;
+    padding: 12px 16px 12px 50px;
+    position: relative;
+    border-bottom: 1px solid var(--border);
+    font-size: .93rem;
+  }
+  .algo-steps li:last-child { border-bottom: none; }
+  .algo-steps li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    position: absolute;
+    left: 14px; top: 14px;
+  }
+
+  /* ── CURRICULUM DAYS ───────────────────────────────────── */
+  .day-block {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color .2s;
+  }
+  .day-block::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--ok);
+  }
+  .day-block.day-done { border-color: var(--ok); }
+  .day-block.day-done::before { background: var(--ok); }
+  .day-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .day-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: .1em;
+    color: var(--ok);
+    text-transform: uppercase;
+  }
+  .day-title {
+    font-size: .97rem;
+    color: var(--hi);
+    font-weight: 600;
+    flex: 1;
+  }
+  .day-complete-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .day-complete-btn:hover { border-color: var(--ok); color: var(--ok); }
+  .day-complete-btn.done { background: rgba(63,185,80,.12); border-color: var(--ok); color: var(--ok); }
+  .day-tasks { list-style: none; padding: 0; }
+  .day-tasks li {
+    padding: 3px 0 3px 22px;
+    position: relative;
+    font-size: .9rem;
+    color: var(--text);
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .day-tasks li::before {
+    content: '→';
+    position: absolute;
+    left: 0;
+    color: var(--accent);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .75em;
+    top: 5px;
+  }
+
+  /* ── MISCONCEPTIONS ────────────────────────────────────── */
+  .misconception {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--bad);
+    border-radius: 8px;
+    padding: 18px 22px;
+    margin-bottom: 16px;
+    transition: border-top-color .2s;
+  }
+  .misconception.understood { border-top-color: var(--ok); }
+  .m-wrong {
+    font-size: .88rem;
+    color: var(--bad);
+    margin-bottom: 10px;
+    font-weight: 500;
+  }
+  .m-wrong::before { content: '✗  Myth: '; font-family: 'IBM Plex Mono', monospace; font-size: .85em; }
+  .m-right {
+    font-size: .9rem;
+    color: var(--text);
+    margin-bottom: 10px;
+    line-height: 1.6;
+  }
+  .m-right::before { content: '✓  Reality: '; font-family: 'IBM Plex Mono', monospace; font-size: .85em; color: var(--ok); font-weight: 600; }
+  .understand-btn {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    padding: 4px 12px;
+    border-radius: 20px;
+    border: 1.5px solid var(--border);
+    background: transparent;
+    color: var(--dim);
+    cursor: pointer;
+    transition: all .15s;
+    margin-top: 6px;
+  }
+  .understand-btn:hover { border-color: var(--ok); color: var(--ok); }
+  .understand-btn.done { background: rgba(63,185,80,.12); border-color: var(--ok); color: var(--ok); }
+
+  /* ── ROADMAP ───────────────────────────────────────────── */
+  .roadmap-week {
+    display: grid;
+    grid-template-columns: 90px 1fr;
+    margin-bottom: 2px;
+    align-items: stretch;
+  }
+  .week-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    padding: 16px 16px 16px 0;
+    border-right: 2px solid var(--border);
+    text-align: right;
+    line-height: 1.4;
+  }
+  .week-content {
+    padding: 14px 0 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .week-title {
+    font-weight: 600;
+    color: var(--hi);
+    font-size: .93rem;
+    margin-bottom: 4px;
+  }
+  .week-detail { font-size: .86rem; color: var(--dim); line-height: 1.6; }
+
+  /* ── SOURCE FILES ──────────────────────────────────────── */
+  .source-file {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 14px 18px;
+    margin: 8px 0;
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 14px;
+    align-items: start;
+  }
+  .sf-name {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .78rem;
+    color: var(--ok);
+    line-height: 1.5;
+  }
+  .sf-desc { font-size: .88rem; color: var(--text); line-height: 1.55; }
+
+  /* ── MISC ──────────────────────────────────────────────── */
+  hr.divider { border: none; border-top: 1px solid var(--border); margin: 36px 0; }
+  .highlight-inline {
+    background: var(--hl);
+    border: 1px solid rgba(230,135,58,.25);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .8em;
+    color: var(--accent);
+  }
+  .footer {
+    margin-top: 80px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+    letter-spacing: .04em;
+  }
+
+  /* ── TOAST ─────────────────────────────────────────────── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--ok);
+    color: var(--ok);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    padding: 10px 18px;
+    border-radius: 8px;
+    box-shadow: var(--shadow);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all .3s ease;
+    z-index: 200;
+    pointer-events: none;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+
+  @media (max-width: 600px) {
+    body { font-size: 15px; }
+    h1 { font-size: 1.8rem; }
+    h2 { font-size: 1.3rem; }
+    .source-file { grid-template-columns: 1fr; }
+    .roadmap-week { grid-template-columns: 60px 1fr; }
+    .stats-card { grid-template-columns: repeat(2,1fr); }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── PROGRESS BAR ── -->
+<div id="progress-bar-wrap">
+  <span id="progress-label">Progress</span>
+  <div id="progress-track"><div id="progress-fill"></div></div>
+  <span id="progress-pct">0%</span>
+  <div id="xp-display">⚡ <span id="xp-count">0</span> XP</div>
+  <div id="theme-switcher">
+    <button class="theme-btn dark active"  data-theme="dark"  title="Dark"  onclick="setTheme('dark')"></button>
+    <button class="theme-btn light"        data-theme="light" title="Light" onclick="setTheme('light')"></button>
+    <button class="theme-btn sepia"        data-theme="sepia" title="Sepia" onclick="setTheme('sepia')"></button>
+  </div>
+</div>
+
+<!-- ── TOAST ── -->
+<div id="toast"></div>
+
+<div class="main-wrap">
+
+<!-- ── MASTHEAD ── -->
+<div class="masthead">
+  <div class="eyebrow">Security Engineering Masterclass</div>
+  <h1>American Fuzzy Lop —<br><em>A Technical Deep Dive</em></h1>
+  <p class="subtitle">From first principles to adversarial critique. Written for a practitioner who can handle depth, not someone who wants a Wikipedia summary.</p>
+  <div class="meta-row">
+    <div class="meta-pill">Primary source: <span>Zalewski's technical_details.txt</span></div>
+    <div class="meta-pill">Also covers: <span>AFL++ · libFuzzer · OSS-Fuzz</span></div>
+    <div class="meta-pill">Level: <span>Practitioner → Engineer</span></div>
+  </div>
+</div>
+
+<!-- ── MODULE STATS ── -->
+<div class="stats-card">
+  <div class="stat-item">
+    <span class="stat-num" id="stat-complete">0</span>
+    <span class="stat-label">of 10 Sections</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="stat-xp">0</span>
+    <span class="stat-label">XP Earned</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="stat-days">0</span>
+    <span class="stat-label">Days Complete</span>
+  </div>
+  <div class="stat-item">
+    <span class="stat-num" id="stat-myths">0</span>
+    <span class="stat-label">Myths Busted</span>
+  </div>
+</div>
+
+<!-- ── TOC ── -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol id="toc-list">
+    <li><span class="toc-num">01 —</span><a href="#s1">Mental Model — From First Principles</a><div class="toc-check" id="toc-check-s1"></div></li>
+    <li><span class="toc-num">02 —</span><a href="#s2">Algorithmic Deep Dive</a><div class="toc-check" id="toc-check-s2"></div></li>
+    <li><span class="toc-num">03 —</span><a href="#s3">Systems Engineering Decisions</a><div class="toc-check" id="toc-check-s3"></div></li>
+    <li><span class="toc-num">04 —</span><a href="#s4">Adversarial Critique — Where AFL Breaks</a><div class="toc-check" id="toc-check-s4"></div></li>
+    <li><span class="toc-num">05 —</span><a href="#s5">Build Intuition — Concrete Examples</a><div class="toc-check" id="toc-check-s5"></div></li>
+    <li><span class="toc-num">06 —</span><a href="#s6">7-Day Hands-On Curriculum</a><div class="toc-check" id="toc-check-s6"></div></li>
+    <li><span class="toc-num">07 —</span><a href="#s7">Code Reading Map</a><div class="toc-check" id="toc-check-s7"></div></li>
+    <li><span class="toc-num">08 —</span><a href="#s8">Modern Relevance — OSS-Fuzz, Sanitizers, CI</a><div class="toc-check" id="toc-check-s8"></div></li>
+    <li><span class="toc-num">09 —</span><a href="#s9">Destroy Your Misconceptions</a><div class="toc-check" id="toc-check-s9"></div></li>
+    <li><span class="toc-num">10 —</span><a href="#s10">30-Day Practice Roadmap</a><div class="toc-check" id="toc-check-s10"></div></li>
+  </ol>
+</div>
+
+<!-- ===== SECTION 1 ===== -->
+<div class="section" id="s1">
+  <div class="section-header">
+    <div class="section-num">01 —</div>
+    <h2>Mental Model — From First Principles</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~25 min read</span>
+    <span class="diff-badge diff-intro">Intro</span>
+    <button class="complete-btn" onclick="markSection('s1', this)">Mark Complete</button>
+  </div>
+
+  <h3>What Problem Did Fuzzing Solve, and Why Was AFL a Step-Change?</h3>
+  <p>Start here: why do bugs exist? Because software has an implicit contract between what the developer imagined the input space to be, and what it actually is. Bugs live in the gap between the developer's mental model and physical reality — the off-by-one in buffer length, the type confusion when parsing a malformed tag, the integer overflow that only appears with a specific combination of field values.</p>
+  <p>Before AFL, fuzzers attacked this problem in two flavors. <strong>Blind (dumb) fuzzers</strong> threw random mutations at a binary and watched it crash. No feedback. No learning. Discovering a deep code path was largely a lottery. <strong>Generation-based fuzzers</strong> required a grammar or specification — they understood the format and generated structurally valid inputs with deliberate corruption. Powerful in theory. Expensive in practice. Every new target format required new spec work.</p>
+  <p>AFL changed the economics. It combined the ease of a mutation fuzzer with a feedback signal that previously required manual specification: <strong>code coverage</strong>. If a mutated input causes the program to exercise a new branch — take a path it hadn't taken before — AFL keeps that input and uses it as a seed for further mutation. If it doesn't add coverage, discard it. This is the core idea. Everything else is engineering around that insight.</p>
+
+  <div class="callout insight">
+    <div class="callout-head">The Breakthrough in One Sentence</div>
+    <p>AFL operationalized the intuition that "interesting inputs make programs do new things" into a fast, automatable, seed-agnostic feedback loop — without requiring domain knowledge about the target format.</p>
+  </div>
+
+  <h3>Coverage-Guided Greybox Fuzzing — The Right Mental Frame</h3>
+  <p>The "greybox" label is precise. Whitebox fuzzing (symbolic execution, concolic testing) reasons about program semantics — it knows what the code does. Blackbox fuzzing (pure random, generation-based) ignores internals entirely. Greybox sits deliberately in the middle: AFL injects lightweight instrumentation to observe <em>what happened</em> (which edges were taken) without reasoning about <em>why</em> (what the values mean). This asymmetry is intentional. Full semantic reasoning is expensive and fragile. Coverage signals are cheap and composable.</p>
+
+  <h3>Edge Coverage — Why Edges, Not Blocks?</h3>
+  <p>Basic block coverage tells you which blocks executed. Edge coverage (also called branch coverage) tells you which transitions between blocks occurred. The difference is critical.</p>
+  <p>Consider: block A executes, then block B executes. With block coverage, this looks identical whether A→B happened or A→C→B happened. Edge coverage sees them as different traces. AFL records the edge <code>(prev_block_id XOR curr_block_id)</code> into a shared bitmap. This tuple representation captures local-scale control flow transitions efficiently without comparing full execution traces.</p>
+
+  <div class="code-label">AFL's instrumentation stub (conceptual assembly)</div>
+  <pre><code>; At the top of each basic block:
+  cur_location = (compile-time random value);
+  shared_mem[cur_location ^ prev_location]++;
+  prev_location = cur_location >> 1;   ; shift prevents A→B == B→A</code></pre>
+
+  <p>The right-shift ensures that the A→B edge gets a different bitmap slot than the B→A edge. Without it, loops would be invisible. The XOR combines two block IDs into one bitmap index. This is O(1) per basic block — essentially free at runtime.</p>
+  <p>AFL also tracks <strong>hit counts in buckets</strong> (AFL++ current values): [1], [2–3], [4–7], [8–15], [16–31], [32–63], [64–127], [128+]. A loop going from 47 to 48 iterations maps to the same bucket — irrelevant. A loop going from 3 to 4 iterations changes bucket — potentially interesting. This coarse quantization prevents trivial variation from flooding the queue while still capturing meaningful behavioral change. (Original AFL used a slightly different bucketing scheme; AFL++ refined it to eight evenly-spaced power-of-two ranges.)</p>
+
+  <h3>Instrumentation — Two Modes</h3>
+  <p><strong>Compile-time instrumentation</strong> (afl-gcc / afl-clang): The compiler injects the coverage stub into every basic block during compilation. Near-zero runtime cost. This is the default and the right choice when you have source.</p>
+  <p><strong>QEMU mode</strong>: For binaries without source. QEMU runs the binary in user-space emulation and instruments basic blocks dynamically. Cost: approximately 2–5× slower. Still useful for closed-source targets.</p>
+
+  <h3>The Forkserver — Why It Matters</h3>
+  <p>Every test case execution needs a clean process state. Naive approach: <code>fork() + execve()</code> for each input. This is expensive. Program initialization — dynamic linker, constructors, early <code>main()</code> work — runs every single time.</p>
+  <p>AFL's forkserver is a clean design: the instrumented binary runs <em>once</em>, past all initialization, then pauses and waits for AFL to signal it. When AFL needs to test an input, the forkserver <code>fork()</code>s — it does NOT <code>execve()</code> again. The child process inherits already-initialized state, runs the test, exits. The parent forkserver loops back and waits.</p>
+
+  <div class="callout green">
+    <div class="callout-head">Performance Impact</div>
+    <p>For a typical target, this gives 1000+ executions/second instead of the 50–100 you'd get with naive exec-per-test. That is the difference between finding something in an hour or a week.</p>
+  </div>
+
+  <h3>Corpus Minimization</h3>
+  <p>afl-cmin reduces a corpus to the smallest set of inputs that collectively maintain the same coverage as the full corpus. It's not the same as minimizing individual files (that's afl-tmin). The goal: remove redundant seeds that cover the same edges as other, smaller/faster seeds. Smaller corpus → faster queue cycles → more mutation attempts per unit time.</p>
+
+  <h3>Deterministic Mutation Stages</h3>
+  <p>AFL's mutation pipeline is not random all the way through. It begins with a set of <strong>deterministic stages</strong> — exhaustive, reproducible, not random. For a given seed, these run to completion and are then marked done forever. They include:</p>
+  <ul class="prose-list">
+    <li><strong>Bit flips</strong> at widths 1/1, 2/1, 4/1, 8/8, 16/8, 32/8 — flip N bits, step by M</li>
+    <li><strong>Arithmetic</strong> — add/subtract small integers (±35) to 8-, 16-, 32-bit integers at each offset, trying both endiannesses</li>
+    <li><strong>Interesting values</strong> — inject boundary values like 0, 1, -1, INT_MAX, INT_MIN, 0x80, 0xFF, etc. at each offset</li>
+    <li><strong>Dictionary injection</strong> — user-provided or auto-extracted tokens inserted/overwritten at every position</li>
+  </ul>
+  <p>These stages are expensive in absolute terms but highly structured — they systematically cover the "near-the-seed" mutation space before the randomness starts.</p>
+
+  <h3>Havoc Stage</h3>
+  <p>After deterministic stages, AFL enters <strong>havoc</strong>: stacked random mutations. A random number of operators (between 1 and 128, geometrically distributed) are applied in sequence to the same input. Operators include: bit flip at random position, byte set to random value, block deletion, block insertion, block cloning, splicing in bytes from another seed. This is the "creative destruction" phase — it reaches combinations no deterministic stage could enumerate.</p>
+
+  <h3>Splice Stage</h3>
+  <p>Splice is genetic crossover. AFL picks another seed from the queue, finds a position where the two inputs diverge significantly, splices the tail of one onto the head of the other, then runs havoc on the result. This enables structural recombination — producing chimeras that inherit structure from two different interesting inputs. In practice, splice often unlocks bugs that require state from multiple distinct parser paths simultaneously.</p>
+
+  <h3>Crash Triage</h3>
+  <p>AFL separates crashes from hangs. Both go into output directories. Crashes are not automatically deduplicated by stack trace — AFL uses the coverage tuple to distinguish them. Two crashes that trigger different bitmap entries are saved separately. Two crashes that trigger identical tuples: only one is kept. This is fast but imprecise — it will both group distinct bugs and separate variants of the same bug depending on how control flow diverges.</p>
+  <p>Real triage requires: afl-tmin (minimize the crashing input), then reproduce under AddressSanitizer / GDB / lldb for root cause. The bitmap-based deduplication is a heuristic starting point, not a final answer.</p>
+</div>
+
+<!-- ===== SECTION 2 ===== -->
+<div class="section" id="s2">
+  <div class="section-header">
+    <div class="section-num">02 —</div>
+    <h2>Algorithmic Deep Dive</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~30 min read</span>
+    <span class="diff-badge diff-mid">Intermediate</span>
+    <button class="complete-btn" onclick="markSection('s2', this)">Mark Complete</button>
+  </div>
+
+  <h3>The AFL Execution Loop — Step by Step</h3>
+  <ol class="algo-steps">
+    <li><strong>Load seed corpus</strong> from the input directory. Calibrate each seed: measure execution time and coverage tuple. Mark as favorite if it uniquely covers edges not covered by smaller/faster seeds.</li>
+    <li><strong>Select next queue entry</strong>. Round-robin with skip probabilities: non-favorite, already-fuzzed entries are skipped ~95% of the time. New favored entries get full attention. This biases work toward the frontier.</li>
+    <li><strong>Calibrate if needed.</strong> Verify the entry is not flaky (variable coverage across runs). Unstable entries are flagged; their coverage bits are cleared to avoid false positives in the bitmap.</li>
+    <li><strong>Trim the test case</strong> using afl-tmin's binary search algorithm: repeatedly halve the input, check if coverage is preserved, keep the smaller version if yes. Smaller inputs run faster and mutate more efficiently.</li>
+    <li><strong>Run deterministic stages</strong> (if not already done for this entry). Each mutation is tested against the target. New coverage → save the mutated input as a new queue entry.</li>
+    <li><strong>Compute performance score</strong> (perf_score). Factors: how many new tuples did this entry bring? Execution speed? File size? Entries that brought many cheap new edges score higher and get more havoc iterations.</li>
+    <li><strong>Run havoc</strong> for a number of iterations proportional to perf_score. Each havoc round applies 1–128 stacked random operators. After each stacked round, run target. New coverage → enqueue.</li>
+    <li><strong>Optionally splice</strong> with a random queue member, then repeat havoc on the spliced result.</li>
+    <li><strong>Advance to next queue entry.</strong> When the full queue is exhausted, increment cycle counter, cull queue (remove entries superseded by later finds), loop.</li>
+  </ol>
+
+  <h3>Pseudocode</h3>
+  <pre><code>function afl_main_loop(initial_seeds, target):
+    queue = calibrate_and_load(initial_seeds)
+
+    while True:
+        entry = pick_next(queue)          # round-robin, skip heuristics
+
+        if not entry.calibrated:
+            calibrate(entry, target)      # measure speed, verify stability
+
+        entry.input = trim(entry, target) # minimize while preserving coverage
+
+        if not entry.det_done:
+            for stage in [bitflips, arith, interesting_values, dictionary]:
+                for mutant in stage.generate(entry.input):
+                    result = run(target, mutant)
+                    if has_new_coverage(result, global_bitmap):
+                        enqueue(queue, mutant)
+            entry.det_done = True
+
+        score = calculate_score(entry)    # new edges, speed, size
+        havoc_rounds = base_rounds * score
+
+        for _ in range(havoc_rounds):
+            n_mutations = geometric_sample(max=128)
+            mutant = entry.input
+            for _ in range(n_mutations):
+                mutant = apply_random_operator(mutant, queue)
+            result = run(target, mutant)
+            if has_new_coverage(result, global_bitmap):
+                enqueue(queue, mutant)
+
+        if use_splicing:
+            for _ in range(SPLICE_CYCLES=15):
+                other = random_choice(queue)
+                spliced = splice(entry.input, other.input)
+                # run havoc on spliced...
+
+        if queue.cycle_complete():
+            cull_queue(queue)
+            global_bitmap.trim()</code></pre>
+
+  <h3>Seed Scheduling Heuristics</h3>
+  <p>AFL's <code>calculate_score()</code> is worth understanding precisely. It produces a multiplier on the base havoc iteration count, starting at 100%, then adjusting:</p>
+  <ul class="prose-list">
+    <li><strong>Execution speed bonus:</strong> if this entry runs faster than average, score goes up</li>
+    <li><strong>Bitmap contribution:</strong> if this entry was the first to trigger many unique edges, score goes up</li>
+    <li><strong>File size penalty:</strong> larger inputs run slower and mutate less effectively; score goes down</li>
+    <li><strong>Age penalty:</strong> entries that have been in the queue for many cycles without producing new finds get a slight penalty</li>
+  </ul>
+  <p>The net effect: AFL naturally biases toward small, fast, high-coverage seeds. This is a greedy local heuristic, not a globally optimal schedule. AFLFast later modeled this as a Markov chain and showed that AFL over-invests in high-frequency paths at the expense of rare paths. AFL++ addresses this with alternative power schedules (explore, fast, coe, rare, mmopt).</p>
+
+  <h3>Path Discovery Economics</h3>
+  <p>Think of AFL as doing a biased random walk on the program's path space. Each time it discovers a new edge, it plants a flag there and starts exploring nearby. The problem is that the space is exponentially large — N edges means 2^N possible paths — but AFL avoids this by working at the edge level, not the path level.</p>
+  <p>The tuple representation is deliberately lossy. Two inputs that exercise the same edges in different global orders are considered equivalent. This is the engineering tradeoff: path explosion — the combinatorial nightmare that kills symbolic execution — is avoided by design.</p>
+
+  <h3>Why Certain Mutations Are Surprisingly Effective</h3>
+  <p><strong>Bit flips at small widths</strong> are not as random as they look. Many format parsers gate on specific flag bits, version bytes, or type tags. Flipping a single bit at the right position can flip parser behavior from "discard" to "process deeply."</p>
+  <p><strong>Interesting values</strong> (0, -1, INT_MAX, 128, 255) are disproportionately effective because programmers write conditionals like <code>if (len > MAX)</code> or <code>if (offset == 0)</code>. These boundary values are exactly where off-by-one errors, integer overflows, and null pointer dereferences live.</p>
+  <p><strong>Stacked havoc</strong> works because real vulnerabilities often require multiple conditions to hold simultaneously. A single mutation rarely achieves this. Stacked mutations approximate the combinatorial space without enumerating it.</p>
+  <p><strong>Splice</strong> is underrated. Consider fuzzing a parser that handles two distinct record types. Neither seed alone reaches the code that handles type-2 records embedded inside type-1 structures. Splice can create a chimera that does.</p>
+</div>
+
+<!-- ===== SECTION 3 ===== -->
+<div class="section" id="s3">
+  <div class="section-header">
+    <div class="section-num">03 —</div>
+    <h2>Systems Engineering Decisions</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~20 min read</span>
+    <span class="diff-badge diff-mid">Intermediate</span>
+    <button class="complete-btn" onclick="markSection('s3', this)">Mark Complete</button>
+  </div>
+
+  <h3>The Bitmap — 64KB, Shared Memory, Not Bigger</h3>
+  <p>AFL's trace bitmap is 64KB — chosen to match L2 cache size at the time of AFL's creation. This is not an accident. If the bitmap fits in L2 cache, the XOR-and-increment instrumentation stub runs from cached memory, not main RAM. The difference is ~100× in latency. At 1000 executions/second, cache miss rate for the bitmap would dominate total runtime.</p>
+  <p>The bitmap is a <strong>shared memory segment</strong> between the fuzzer process and the child process (via <code>shmget/shmat</code>). The child writes to it during execution; the fuzzer reads it after the child exits. No IPC overhead, no copying.</p>
+
+  <div class="callout warn">
+    <div class="callout-head">Bitmap Collision — The Hidden Tax</div>
+    <p>With 65,536 slots and potentially millions of edges in a large program, hash collisions are inevitable. Two distinct edges can map to the same bitmap slot — a false aliasing that makes the fuzzer think it has covered an edge it hasn't. AFL accepts this as a known tradeoff. AFL++ addresses it with PCGuard instrumentation, which assigns unique, collision-free IDs to each edge.</p>
+  </div>
+
+  <h3>Queue Management</h3>
+  <p>The queue is a flat file-backed linked list, not an in-memory priority queue. Queue entries are files in <code>out/queue/</code> with names encoding metadata: <code>id:000123,src:000042,op:havoc,rep:16</code>. This naming is deliberate — it makes the queue's history human-readable and resumable across crashes or restarts.</p>
+  <p>"Culling" the queue: AFL periodically marks entries as "redundant" if their coverage is now fully subsumed by other entries. Redundant entries are not deleted — they stay on disk — but they're deprioritized in future cycles.</p>
+
+  <h3>Calibration</h3>
+  <p>Before fuzzing a seed, AFL runs it multiple times (default: 8 runs) and checks whether coverage is stable. If the bitmap changes across identical runs of the same input, the target has non-deterministic behavior — threading, ASLR-dependent code paths, time-dependent behavior. Unstable entries get their "variable" bits cleared from the global bitmap, preventing them from polluting coverage accounting.</p>
+
+  <h3>Timeout Handling</h3>
+  <p>AFL sets a timeout at 5× the calibrated execution speed, rounded up to 20ms minimum. Inputs that exceed this are classified as hangs, not crashes. They're saved separately and counted — an infinite loop in a parser is itself a bug (DoS). The aggressive timeout is intentional: "tarpits" that improve coverage by 1% while running 100× slower would otherwise cripple throughput.</p>
+
+  <h3>Parallelization</h3>
+  <p>AFL's parallelization model is embarrassingly simple: run multiple independent instances against the same target, sharing a queue via the filesystem. One instance is the "master" (<code>-M</code>), the rest are "secondary" (<code>-S</code>). Secondary instances periodically sync interesting finds from other instances into their own queue. No shared state beyond the filesystem.</p>
+
+  <h3>Memory and CPU Considerations</h3>
+  <p>Original AFL set a default memory limit of 50 MB on child processes via <code>setrlimit</code>, treating memory exhaustion as a crash — useful for catching allocator-based vulnerabilities. AFL++ removed the default limit (<code>MEM_LIMIT=0</code>) because ASAN's shadow memory causes false positives under a hard cap. When running without ASAN, supply <code>-m 50</code> explicitly to restore the guard.</p>
+  <p>CPU frequency scaling is an enemy. Modern CPUs throttle clock speed for power efficiency. AFL checks for CPU frequency scaling at startup and warns loudly — inconsistent clock speed means inconsistent timeout calculations. Disable it: <code>echo performance | sudo tee /sys/devices/system/cpu/cpu*/cpufreq/scaling_governor</code>.</p>
+</div>
+
+<!-- ===== SECTION 4 ===== -->
+<div class="section" id="s4">
+  <div class="section-header">
+    <div class="section-num">04 —</div>
+    <h2>Adversarial Critique — Where AFL Breaks</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~25 min read</span>
+    <span class="diff-badge diff-adv">Advanced</span>
+    <button class="complete-btn" onclick="markSection('s4', this)">Mark Complete</button>
+  </div>
+
+  <h3>Magic Bytes and Checksums</h3>
+  <p>Many file formats begin with a magic signature: <code>PNG\r\n\x1a\n</code>, <code>PK\x03\x04</code>, <code>\x7fELF</code>. The parser checks this first and rejects input if it doesn't match. AFL's random mutations will destroy magic bytes with very high probability. The result: almost every mutated input is rejected at the first line of the parser.</p>
+  <p>Checksums are worse. A CRC or MD5 embedded in the input means <em>any</em> mutation that doesn't also update the checksum produces an input that the parser rejects before doing anything interesting.</p>
+  <p><strong>Mitigations:</strong> Supply a dict file with magic bytes. Patch the target to disable checksum validation. Use AFL++ with laf-intel / CMPLOG which transforms multi-byte comparisons into sequences of single-byte comparisons, making them tractable.</p>
+
+  <h3>Deep State Machines</h3>
+  <p>Network protocol parsers are state machines. A valid TLS handshake requires: ClientHello → ServerHello → Certificate → ServerHelloDone → ClientKeyExchange → Finished — in order. A mutation of ClientHello that slightly malforms it causes the server to reject it before reaching any of the deeper states.</p>
+  <p>AFL has no concept of protocol state. AFLNet extends AFL specifically to handle this: it seeds with recorded packet captures, identifies server response codes to infer protocol state, and steers fuzzing toward states with low prior exploration.</p>
+
+  <h3>Structured Inputs</h3>
+  <p>A JSON parser has a grammar. An SQL parser has a grammar. AFL does not know the grammar. Its bit-level mutations will produce syntactically invalid inputs that are rejected before any interesting parsing begins. You can spend 48 hours fuzzing a JSON parser with AFL and never discover a bug that only manifests on semantically valid but structurally unusual input.</p>
+
+  <h3>Why Hybrid Fuzzing Emerged</h3>
+  <p>Coverage-guided fuzzing gets stuck at "hard branches" — comparisons that require a specific value to pass. <code>if (magic == 0xDEADBEEF)</code> — AFL's mutations have a 1-in-4-billion chance of randomly generating the right value.</p>
+  <p>Hybrid fuzzing (Driller, SymCC, QSYM) uses AFL for fast broad coverage and falls back to concolic execution only when AFL gets stuck. AFL is great at finding the first 80% of paths cheaply; concolic is the scalpel for the hard 20%.</p>
+
+  <h3>AFL vs libFuzzer vs AFL++ vs honggfuzz</h3>
+  <table>
+    <thead>
+      <tr><th>Fuzzer</th><th>Architecture</th><th>Strengths</th><th>Weaknesses</th><th>Best For</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>AFL (original)</td><td>Forkserver, file I/O</td>
+        <td class="good">Proven, well-understood, any target</td>
+        <td class="bad">Bitmap collisions, limited customization</td>
+        <td>General use, legacy</td>
+      </tr>
+      <tr>
+        <td>libFuzzer</td><td>In-process, LLVM coverage</td>
+        <td class="good">No fork overhead, sanitizer-native</td>
+        <td class="bad">In-process crashes destabilize fuzzer</td>
+        <td>Library fuzzing with harness</td>
+      </tr>
+      <tr>
+        <td>AFL++</td><td>Forkserver + LLVM PCGuard</td>
+        <td class="good">Collision-free, CMPLOG, custom mutators</td>
+        <td class="meh">More complex setup</td>
+        <td>Most production fuzzing today</td>
+      </tr>
+      <tr>
+        <td>honggfuzz</td><td>Multi-mode (file/net/perf)</td>
+        <td class="good">Hardware performance counters, persistent mode</td>
+        <td class="bad">Less ecosystem support</td>
+        <td>Performance-sensitive targets</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="callout insight">
+    <div class="callout-head">Practitioner's Take</div>
+    <p>If you're starting new fuzzing work today, use AFL++. It incorporates a decade of research improvements while remaining operationally familiar. CMPLOG handles many magic-byte and checksum problems automatically. It's the right default.</p>
+  </div>
+</div>
+
+<!-- ===== SECTION 5 ===== -->
+<div class="section" id="s5">
+  <div class="section-header">
+    <div class="section-num">05 —</div>
+    <h2>Build Intuition — Concrete Examples</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~20 min read</span>
+    <span class="diff-badge diff-intro">Intro</span>
+    <button class="complete-btn" onclick="markSection('s5', this)">Mark Complete</button>
+  </div>
+
+  <h3>Fuzzing a CLI Parser (e.g., objdump, readelf)</h3>
+  <p>These are ideal AFL targets. They take a file as input, parse it deterministically, and crash or behave incorrectly on malformed input. No network state, no magic byte problem (ELF/PE headers are short and can be in the seed corpus). AFL will immediately start making progress. Within hours, you'll typically find reads past buffer bounds, integer overflows in size calculations, and null pointer dereferences in malformed section handling.</p>
+
+  <h3>Fuzzing a Network Protocol Parser</h3>
+  <p>Much harder. AFL as-is will struggle because: the target is a server (not a file-reading CLI), it has network state, and input requires a valid sequence of messages. The standard approach:</p>
+  <ul class="prose-list">
+    <li><strong>Write a harness</strong> that reads "input" from a file, calls the protocol parsing function directly, and returns.</li>
+    <li><strong>Stub out the network layer</strong> — replace <code>recv()</code> and <code>send()</code> with functions that read from/write to your harness buffer.</li>
+    <li>For stateful protocols: use AFLNet with packet capture seeds, or pre-initialize the parser state to a known mid-session state.</li>
+  </ul>
+
+  <h3>Fuzzing an Image Decoder (e.g., libpng, libjpeg)</h3>
+  <p>Classic AFL target. Start with a small valid PNG (under 1KB). AFL will observe coverage, then start mutating. IHDR chunk width/height fields are integers — AFL's arithmetic mutations will try boundary values like 0, 1, UINT_MAX immediately. Corruption of IDAT chunk data exercises the decompressor.</p>
+
+  <h3>Easy vs. Hard Bugs</h3>
+  <table>
+    <thead>
+      <tr><th>Bug Class</th><th>AFL Ease</th><th>Reason</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Stack overflow (unchecked length)</td><td class="good">Easy</td><td>Coverage changes immediately when length boundary is crossed</td></tr>
+      <tr><td>NULL deref from malformed field</td><td class="good">Easy</td><td>One mutation, one crash, simple</td></tr>
+      <tr><td>Integer overflow in allocation size</td><td class="meh">Medium</td><td>Requires specific value; interesting-value stage helps</td></tr>
+      <tr><td>Use-After-Free requiring specific alloc/free order</td><td class="meh">Medium-Hard</td><td>Requires stacked mutations + ASAN to detect</td></tr>
+      <tr><td>Type confusion behind checksum</td><td class="bad">Hard</td><td>Checksum blocks all mutations from reaching the type field</td></tr>
+      <tr><td>Logic bug with no crash signal</td><td class="bad">Hard</td><td>AFL only sees crashes and hangs; silent incorrect behavior is invisible</td></tr>
+      <tr><td>Crypto implementation error</td><td class="bad">Very Hard</td><td>No crash, no coverage change; requires differential fuzzing</td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout warn">
+    <div class="callout-head">The Sanitizer Imperative</div>
+    <p>Always compile your fuzz target with AddressSanitizer (<code>-fsanitize=address</code>). Without it, many memory corruption bugs produce no crash — they corrupt memory silently. ASAN makes heap overflows, stack overflows, UAFs, and use-after-return immediately crash with a precise diagnostic. Fuzzing without ASAN is leaving bugs invisible.</p>
+  </div>
+</div>
+
+<!-- ===== SECTION 6 ===== -->
+<div class="section" id="s6">
+  <div class="section-header">
+    <div class="section-num">06 —</div>
+    <h2>7-Day Hands-On Curriculum</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ 7 days lab work</span>
+    <span class="diff-badge diff-mid">Lab</span>
+    <button class="complete-btn" onclick="markSection('s6', this)">Mark Complete</button>
+  </div>
+
+  <div class="day-block" id="day1">
+    <div class="day-header">
+      <div class="day-label">Day 1</div>
+      <div class="day-title">Setup &amp; Orientation</div>
+      <button class="day-complete-btn" onclick="markDay('day1', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Install AFL++: <code>apt install afl++ afl++-clang</code> or build from source (preferred — read the Makefile)</li>
+      <li>Compile a toy target: <code>readelf</code> or <code>nm</code> from binutils. <code>CC=afl-clang-fast ./configure &amp;&amp; make</code></li>
+      <li>Run AFL for 30 minutes. Observe the UI. Learn every field: stability, map density, cycle progress, exec speed</li>
+      <li>Read AFL's status screen documentation cover to cover while it runs</li>
+      <li>Goal: understand what "map density 15%" means and why "stability 100%" matters</li>
+    </ul>
+  </div>
+
+  <div class="day-block" id="day2">
+    <div class="day-header">
+      <div class="day-label">Day 2</div>
+      <div class="day-title">Instrument a Toy Target</div>
+      <button class="day-complete-btn" onclick="markDay('day2', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Write a deliberately vulnerable C parser: a 50-line function with at least one stack overflow, one integer overflow opportunity, and one NULL deref</li>
+      <li>Compile with afl-clang-fast + ASAN: <code>AFL_USE_ASAN=1 afl-clang-fast -g vuln_parser.c -o vuln_parser</code></li>
+      <li>Examine the disassembly — find the instrumentation stubs AFL injected</li>
+      <li>Create two seed inputs: one minimal valid input, one that exercises a second code path</li>
+      <li>Run afl-fuzz. Time how long it takes to find the first crash</li>
+    </ul>
+  </div>
+
+  <div class="day-block" id="day3">
+    <div class="day-header">
+      <div class="day-label">Day 3</div>
+      <div class="day-title">Observe Coverage</div>
+      <button class="day-complete-btn" onclick="markDay('day3', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Use <code>afl-showmap</code> to dump the coverage bitmap for a single input</li>
+      <li>Run afl-cov (or llvm-cov) to render HTML coverage over time</li>
+      <li>Compare coverage after 5 min vs 30 min vs 2 hours. Where did the fuzzer get stuck?</li>
+      <li>Add a "hard" branch: <code>if (magic == 0xDEADBEEF)</code>. Observe time-to-pass. Then add to dict file and observe speedup</li>
+      <li>Bonus: run <code>afl-analyze</code> to see AFL's guess at which bytes are structural vs. data</li>
+    </ul>
+  </div>
+
+  <div class="day-block" id="day4">
+    <div class="day-header">
+      <div class="day-label">Day 4</div>
+      <div class="day-title">Trigger and Triage Crashes</div>
+      <button class="day-complete-btn" onclick="markDay('day4', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Once crashes appear in <code>out/crashes/</code>, reproduce each one manually</li>
+      <li>Run under GDB or lldb. Get the exact fault address and stack trace</li>
+      <li>Run under ASAN — compare the ASAN report to the GDB crash</li>
+      <li>Use <code>afl-tmin</code> to minimize the crashing input: <code>afl-tmin -i crash_input -o minimized -- ./vuln_parser @@</code></li>
+      <li>Classify each crash: stack overflow / heap overflow / NULL deref / UAF / other</li>
+      <li>Write a one-paragraph root cause analysis for each unique crash class</li>
+    </ul>
+  </div>
+
+  <div class="day-block" id="day5">
+    <div class="day-header">
+      <div class="day-label">Day 5</div>
+      <div class="day-title">Minimize Corpus</div>
+      <button class="day-complete-btn" onclick="markDay('day5', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Run <code>afl-cmin</code> to find the minimal set: <code>afl-cmin -i out/queue -o minimized_corpus -- ./vuln_parser @@</code></li>
+      <li>Count entries before and after. Ratio should be 5:1 to 20:1</li>
+      <li>Start a new AFL session seeded with the minimized corpus. Compare exec speed and coverage growth rate</li>
+      <li>Read afl-cmin source to understand how it uses <code>afl-showmap</code> internally</li>
+    </ul>
+  </div>
+
+  <div class="day-block" id="day6">
+    <div class="day-header">
+      <div class="day-label">Day 6</div>
+      <div class="day-title">Write a Real Harness</div>
+      <button class="day-complete-btn" onclick="markDay('day6', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Pick a real library: libpng, zlib, or expat. Write a fuzzing harness that reads from file and calls the parsing function directly</li>
+      <li>Model: <code>int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)</code></li>
+      <li>Think carefully: what state should be initialized before each call? What resources need cleanup?</li>
+      <li>Run for 1 hour. Compare coverage with a naive "feed to CLI" approach</li>
+      <li>Document: what design decisions did you make? What did you stub out?</li>
+    </ul>
+  </div>
+
+  <div class="day-block" id="day7">
+    <div class="day-header">
+      <div class="day-label">Day 7</div>
+      <div class="day-title">Parallelize and Reflect</div>
+      <button class="day-complete-btn" onclick="markDay('day7', this)">Done</button>
+    </div>
+    <ul class="day-tasks">
+      <li>Run AFL++ in parallel: one master, two secondaries</li>
+      <li>Observe how secondary instances sync finds from the master. Watch queue growth across instances</li>
+      <li>Run <code>afl-whatsup out/</code> to see aggregate stats across all instances</li>
+      <li>Write a post-mortem: what bugs did you find? What did AFL miss and why?</li>
+      <li>Stretch goal: enable AFL++ CMPLOG (<code>-c 0</code>) and observe its effect on magic-byte-protected paths</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== SECTION 7 ===== -->
+<div class="section" id="s7">
+  <div class="section-header">
+    <div class="section-num">07 —</div>
+    <h2>Code Reading Map</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~3 hr code reading</span>
+    <span class="diff-badge diff-adv">Advanced</span>
+    <button class="complete-btn" onclick="markSection('s7', this)">Mark Complete</button>
+  </div>
+
+  <p>For AFL++ (the active codebase). Read in this order:</p>
+
+  <div class="source-file">
+    <div class="sf-name">src/afl-fuzz.c<br><code>main()</code></div>
+    <div class="sf-desc">The orchestrator. Understand the overall initialization sequence, option parsing, and how the main fuzzing loop is entered. Look for how the queue is initialized, how the forkserver is launched, and how the cycle counter increments. This is your map.</div>
+  </div>
+  <div class="source-file">
+    <div class="sf-name">src/afl-fuzz-run.c<br><code>run_target()</code></div>
+    <div class="sf-desc">The innermost loop: how a single input is sent to the forkserver, how the child PID is collected, how the timeout timer (<code>ITIMER_REAL</code>) is set, and how the trace bitmap is read after execution. This function runs millions of times — every cycle here matters.</div>
+  </div>
+  <div class="source-file">
+    <div class="sf-name">src/afl-fuzz-bitmap.c<br><code>has_new_bits()</code></div>
+    <div class="sf-desc">The coverage comparison function. Understand how the current trace bitmap is compared against the global "virgin" bitmap. How are new tuples detected? How are the hit-count buckets applied? This is the single most important function in AFL — everything else is scaffolding around it.</div>
+  </div>
+  <div class="source-file">
+    <div class="sf-name">src/afl-fuzz-one.c<br><code>fuzz_one_original()</code></div>
+    <div class="sf-desc">3000+ lines. The complete mutation pipeline for a single queue entry: calibration check, trimming, all deterministic stages, then havoc, then splice. Read the stage-by-stage structure first, then dive into individual mutation implementations.</div>
+  </div>
+  <div class="source-file">
+    <div class="sf-name">src/afl-fuzz-queue.c<br><code>calculate_score()</code></div>
+    <div class="sf-desc">The seed scheduling heuristic. See exactly how speed, size, bitmap contribution, and age factor into the havoc iteration multiplier. This is where AFL's resource allocation decisions are made.</div>
+  </div>
+  <div class="source-file">
+    <div class="sf-name">instrumentation/<br>afl-compiler-rt.o.c</div>
+    <div class="sf-desc">The runtime library injected into instrumented targets. Find <code>__afl_trace()</code> — this is the XOR-and-increment stub. Also find the forkserver loop (<code>__afl_forkserver()</code>) — the code that runs inside the target process, waiting for AFL to signal it to fork.</div>
+  </div>
+  <div class="source-file">
+    <div class="sf-name">instrumentation/<br>afl-llvm-pass.so.cc</div>
+    <div class="sf-desc">The LLVM instrumentation pass. Read how it iterates over basic blocks, assigns random IDs, and inserts the coverage call. Compare PCGuard (collision-free) vs. classic mode.</div>
+  </div>
+
+  <div class="callout green">
+    <div class="callout-head">Reading Strategy</div>
+    <p>Don't start by reading linearly. Start with <code>has_new_bits()</code> because it's small (50 lines) and is the conceptual core. Then trace backwards: who calls it? That's <code>common_fuzz_stuff()</code> in run.c. Who calls that? <code>fuzz_one_original()</code>. Build your mental call graph bottom-up from the coverage primitive.</p>
+  </div>
+</div>
+
+<!-- ===== SECTION 8 ===== -->
+<div class="section" id="s8">
+  <div class="section-header">
+    <div class="section-num">08 —</div>
+    <h2>Modern Relevance</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~20 min read</span>
+    <span class="diff-badge diff-intro">Intro</span>
+    <button class="complete-btn" onclick="markSection('s8', this)">Mark Complete</button>
+  </div>
+
+  <h3>OSS-Fuzz — AFL at Scale</h3>
+  <p>Google's OSS-Fuzz runs continuous fuzzing against 1000+ open source projects. It uses libFuzzer and AFL++ as primary engines, with ClusterFuzz as the orchestrator. The key insight of OSS-Fuzz: the bottleneck in fuzzing is not the fuzzer — it's the harness. OSS-Fuzz invested heavily in harness quality, then scaled horizontally.</p>
+  <p>As of 2025, OSS-Fuzz has found over 10,000 bugs in projects including OpenSSL, curl, FFmpeg, freetype, and dozens of critical infrastructure libraries.</p>
+
+  <h3>Sanitizers — The Bug Amplifiers</h3>
+  <p>Sanitizers transform silent corruption into loud crashes. They are not optional when fuzzing.</p>
+  <ul class="prose-list">
+    <li><strong>AddressSanitizer (ASAN)</strong>: heap overflow, stack overflow, UAF, double-free. ~2× runtime cost. Always use for fuzzing.</li>
+    <li><strong>UndefinedBehaviorSanitizer (UBSan)</strong>: signed integer overflow, null pointer dereference, misaligned access. Minimal overhead.</li>
+    <li><strong>MemorySanitizer (MSan)</strong>: use of uninitialized memory. Cannot combine with ASAN. ~3× overhead but catches info-leak primitives.</li>
+    <li><strong>ThreadSanitizer (TSan)</strong>: data races. For concurrent targets only. Very expensive (~10×).</li>
+  </ul>
+
+  <h3>Fuzzing in CI Pipelines</h3>
+  <ul class="prose-list">
+    <li><strong>Continuous fuzzing</strong>: Run OSS-Fuzz or an equivalent continuously against main branch. Findings are filed as security bugs automatically.</li>
+    <li><strong>Regression fuzzing</strong>: Maintain a corpus of known-crash inputs in your repo. In CI, replay every crash input against every build.</li>
+    <li><strong>Coverage gating</strong>: Run a short (5-minute) fuzzing session per PR. If new code has zero fuzzing coverage, fail the CI check.</li>
+  </ul>
+
+  <h3>Fuzzing in Modern Secure SDLC</h3>
+  <ul class="prose-list">
+    <li><strong>Design phase</strong>: Identify parser surface area. Anything that reads untrusted input is a fuzzing target. Mark it in threat model.</li>
+    <li><strong>Implementation phase</strong>: Developers write initial harnesses alongside the parsing code.</li>
+    <li><strong>Test phase</strong>: Run fuzzing for 24–72 hours before each release.</li>
+    <li><strong>Response phase</strong>: Crash corpus is maintained and replayed in every CI build. CVE inputs are added to the permanent regression corpus.</li>
+  </ul>
+</div>
+
+<!-- ===== SECTION 9 ===== -->
+<div class="section" id="s9">
+  <div class="section-header">
+    <div class="section-num">09 —</div>
+    <h2>Destroy Your Misconceptions</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ ~15 min read</span>
+    <span class="diff-badge diff-intro">Intro</span>
+    <button class="complete-btn" onclick="markSection('s9', this)">Mark Complete</button>
+  </div>
+
+  <div class="misconception" id="myth1">
+    <div class="m-wrong">If AFL is running and not crashing, the software is secure.</div>
+    <div class="m-right">AFL finding no crashes means: AFL found no crashes <em>that it could detect, with the seeds it had, in the time it ran, against the code paths it could reach, with the sanitizers you enabled</em>. These are five independent failure modes. AFL is a partial oracle, not a verifier. It proves the presence of bugs, not the absence.</div>
+    <button class="understand-btn" onclick="markMyth('myth1', this)">I understand this</button>
+  </div>
+
+  <div class="misconception" id="myth2">
+    <div class="m-wrong">Fuzzing is something you do once before a release.</div>
+    <div class="m-right">Bugs found after one hour of fuzzing are almost never the interesting ones. The interesting bugs emerge after 24–72 hours when AFL has exhausted the shallow paths. More importantly, bugs re-introduced by code changes require continuous fuzzing to catch.</div>
+    <button class="understand-btn" onclick="markMyth('myth2', this)">I understand this</button>
+  </div>
+
+  <div class="misconception" id="myth3">
+    <div class="m-wrong">More random mutations = more coverage = more bugs.</div>
+    <div class="m-right">Coverage is the metric for how well you're exploring the code. Bugs live in specific code paths, not in coverage percentages. A fuzzer with 95% branch coverage that never exercises the cryptographic validation path will miss every bug in it. Targeted fuzzing beats raw coverage chasing.</div>
+    <button class="understand-btn" onclick="markMyth('myth3', this)">I understand this</button>
+  </div>
+
+  <div class="misconception" id="myth4">
+    <div class="m-wrong">AFL++ is just AFL with more features. They're equivalent.</div>
+    <div class="m-right">AFL++ is architecturally different in ways that matter: collision-free PCGuard instrumentation means your coverage bitmap is actually accurate. CMPLOG/REDQUEEN solves an entire class of problems (magic bytes, checksums) that AFL classic cannot handle. For new work, there is no reason to use vanilla AFL over AFL++.</div>
+    <button class="understand-btn" onclick="markMyth('myth4', this)">I understand this</button>
+  </div>
+
+  <div class="misconception" id="myth5">
+    <div class="m-wrong">Crashes found by AFL are automatically valid security bugs.</div>
+    <div class="m-right">Many AFL crashes are: benign assertion failures, intentional abort() on invalid state, crashes that only occur with ASAN's shadow memory, or unexploitable reads from a controlled offset. Triage is required. A crash is the beginning of analysis, not the end.</div>
+    <button class="understand-btn" onclick="markMyth('myth5', this)">I understand this</button>
+  </div>
+
+  <div class="misconception" id="myth6">
+    <div class="m-wrong">Fuzzing only finds memory corruption bugs.</div>
+    <div class="m-right">Fuzzing with sanitizers finds memory bugs. Fuzzing with differential oracles finds logic bugs, incorrect parsing behaviors, and protocol implementation divergences. Fuzzing with custom assertion checks finds application-level invariant violations. The oracle is the constraint; the fuzzer is the explorer.</div>
+    <button class="understand-btn" onclick="markMyth('myth6', this)">I understand this</button>
+  </div>
+
+  <div class="misconception" id="myth7">
+    <div class="m-wrong">Larger seed files give AFL more material to work with, so they're better.</div>
+    <div class="m-right">Wrong — this is in AFL's own documentation. Larger inputs run slower, and mutations are more likely to be semantically irrelevant. AFL explicitly penalizes large inputs in its performance score. Under 1KB is ideal. Start small, let AFL grow the corpus from there.</div>
+    <button class="understand-btn" onclick="markMyth('myth7', this)">I understand this</button>
+  </div>
+</div>
+
+<!-- ===== SECTION 10 ===== -->
+<div class="section" id="s10">
+  <div class="section-header">
+    <div class="section-num">10 —</div>
+    <h2>30-Day Practice Roadmap</h2>
+  </div>
+  <div class="section-meta">
+    <span class="time-badge">⏱ 30 days lab</span>
+    <span class="diff-badge diff-adv">Full Program</span>
+    <button class="complete-btn" onclick="markSection('s10', this)">Mark Complete</button>
+  </div>
+
+  <p>This is not a reading list. It is an action plan. Each week has a concrete deliverable.</p>
+
+  <div class="roadmap-week">
+    <div class="week-label">Week 1<br>Days 1–7</div>
+    <div class="week-content">
+      <div class="week-title">Environment → First Real Find</div>
+      <div class="week-detail">Execute the 7-day curriculum above. Do not skip Day 2 (write your own vulnerable target). The exercise of writing a bug you then find is the single best way to understand what AFL actually detects. Deliverable: one minimized crash with a one-page root cause analysis.</div>
+    </div>
+  </div>
+  <div class="roadmap-week">
+    <div class="week-label">Week 2<br>Days 8–14</div>
+    <div class="week-content">
+      <div class="week-title">Real Target + Real Harness</div>
+      <div class="week-detail">Pick a real open-source library: libpng, zlib, expat, or libtiff. Write a harness from scratch — do not copy an existing one. Run for 48 hours across 4 parallel instances. Generate a coverage report with lcov/llvm-cov. Deliverable: a written harness with inline comments explaining every design decision, plus coverage report.</div>
+    </div>
+  </div>
+  <div class="roadmap-week">
+    <div class="week-label">Week 3<br>Days 15–21</div>
+    <div class="week-content">
+      <div class="week-title">Source Code Reading</div>
+      <div class="week-detail">Spend this week reading AFL++ source. Work through the 7 key files listed in Section 7. For each file: read it, write a one-paragraph description of what it does, identify the 3 most important functions. Deliverable: annotated reading notes, ideally committed to your own fork of AFL++.</div>
+    </div>
+  </div>
+  <div class="roadmap-week">
+    <div class="week-label">Week 4<br>Days 22–30</div>
+    <div class="week-content">
+      <div class="week-title">Hard Problems + Synthesis</div>
+      <div class="week-detail">Take a target with a checksum or magic-byte barrier. Run AFL++ with CMPLOG enabled. Write a custom mutator (Python AFL++ API) for a structured format. Run a differential fuzzing experiment. Deliverable: a 3-page technical write-up: "What AFL found, what it missed, and what I would do differently."</div>
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="callout warn">
+    <div class="callout-head">The Real Challenge</div>
+    <p>The roadmap above will teach you AFL. But the pattern you need to break is stopping at category-level understanding. "I know how AFL works" is not the same as "I have found 3 bugs in real code using AFL." The difference between those two statements is 30 days of the above work, done without shortcuts.</p>
+    <p>Do the lab. Write the harness. Find the crash. Write the root cause. That is the loop. Everything else is commentary.</p>
+  </div>
+</div>
+
+<!-- ===== REFERENCES ===== -->
+<div class="section" id="refs" style="margin-bottom:40px">
+  <div class="section-header">
+    <div class="section-num">REF —</div>
+    <h2>Primary Sources &amp; Further Reading</h2>
+  </div>
+  <div style="border-bottom:1px solid var(--border); margin-bottom:28px; padding-bottom:0"></div>
+
+  <h3>Primary Technical Sources</h3>
+  <ul class="prose-list">
+    <li><a href="https://github.com/google/AFL/blob/master/docs/technical_details.txt" target="_blank" rel="noopener">Zalewski — <em>technical_details.txt</em></a> — The canonical whitepaper. Every serious AFL practitioner should read this in full. Covers the bitmap, instrumentation, mutation stages, and design rationale from the original author.</li>
+    <li><a href="https://github.com/AFLplusplus/AFLplusplus" target="_blank" rel="noopener">AFL++ Source Repository</a> — The active codebase. Pair with Section 7 (Code Reading Map) to navigate it.</li>
+    <li><a href="https://github.com/AFLplusplus/AFLplusplus/blob/stable/docs/fuzzing_in_depth.md" target="_blank" rel="noopener">AFL++ — <em>fuzzing_in_depth.md</em></a> — The most complete operational guide for AFL++. Covers parallelization, persistent mode, CMPLOG, and corpus management in depth.</li>
+  </ul>
+
+  <h3>Research Papers</h3>
+  <ul class="prose-list">
+    <li><a href="https://www.usenix.org/conference/usenixsecurity17/technical-sessions/presentation/bohme" target="_blank" rel="noopener">Böhme et al. — <em>Coverage-Based Greybox Fuzzing as Markov Chain</em> (CCS 2016)</a> — The AFLFast paper. Formally models AFL's seed scheduling as a Markov chain and demonstrates that AFL over-invests in high-frequency paths. Foundational for understanding why AFL++ introduced alternative power schedules.</li>
+    <li><a href="https://www.usenix.org/conference/usenixsecurity19/presentation/lemieux" target="_blank" rel="noopener">Lemieux &amp; Sen — <em>FairFuzz: A Targeted Mutation Strategy</em> (ASE 2018)</a> — Demonstrates that bias toward rare branches significantly improves coverage. Directly influenced AFL++'s mutation strategies.</li>
+    <li><a href="https://www.ndss-symposium.org/ndss-paper/redqueen-fuzzing-with-input-to-state-correspondence/" target="_blank" rel="noopener">Aschermann et al. — <em>REDQUEEN: Fuzzing with Input-to-State Correspondence</em> (NDSS 2019)</a> — The paper behind AFL++'s CMPLOG feature. Shows how to solve magic-byte and checksum barriers without concolic execution by tracking the correspondence between input bytes and comparison operands.</li>
+    <li><a href="https://www.usenix.org/conference/usenixsecurity21/presentation/fioraldi" target="_blank" rel="noopener">Fioraldi et al. — <em>AFL++: Combining Incremental Steps of Fuzzing Research</em> (WOOT 2020)</a> — The AFL++ design paper. Describes PCGuard instrumentation, CMPLOG integration, and the modular architecture.</li>
+    <li><a href="https://mboehme.github.io/paper/TOSEM20.pdf" target="_blank" rel="noopener">Böhme et al. — <em>Boosting Fuzzer Efficiency: An Information Theoretic Perspective</em> (TOSEM 2020)</a> — Theoretical framing of coverage-guided fuzzing as information maximization. Useful if you want to understand <em>why</em> the greybox model works mathematically.</li>
+  </ul>
+
+  <h3>Video Lectures &amp; Talks</h3>
+  <ul class="prose-list">
+    <li><a href="https://www.youtube.com/watch?v=wy7pqoNRDhU" target="_blank" rel="noopener">Yan Shoshitaishvili — <em>Fuzzing &amp; Software Security</em> (ASU CS 4678)</a> — University lecture series. Clear and detailed; covers AFL internals, harness writing, and triage from an academic perspective.</li>
+    <li><a href="https://www.youtube.com/watch?v=p_bZGrMu7nk" target="_blank" rel="noopener">AFL++ team — <em>Modern Fuzzing of C/C++ Projects</em> (Hack.lu 2020)</a> — Practical walkthrough of AFL++ features from the maintainers: CMPLOG, persistent mode, custom mutators.</li>
+    <li><a href="https://www.youtube.com/watch?v=KFmeHz_vxfo" target="_blank" rel="noopener">Brandon Falk — <em>Fuzzing for Correctness</em> (Enigma 2021)</a> — Covers going beyond crash-finding: differential fuzzing, correctness oracles, and fuzzing closed-source targets.</li>
+    <li><a href="https://www.youtube.com/watch?v=z8TW8_aVFIE" target="_blank" rel="noopener">Google Security — <em>Introduction to OSS-Fuzz</em></a> — How Google's continuous fuzzing infrastructure works, how to onboard a project, and the operational lessons from running at scale.</li>
+  </ul>
+
+  <h3>Practical References</h3>
+  <ul class="prose-list">
+    <li><a href="https://google.github.io/oss-fuzz/" target="_blank" rel="noopener">OSS-Fuzz Documentation</a> — How to integrate your open-source project into Google's continuous fuzzing infrastructure. Includes harness examples for C/C++, Rust, Python, and Go.</li>
+    <li><a href="https://github.com/google/fuzzing/tree/master/tutorial" target="_blank" rel="noopener">Google Fuzzing Tutorial</a> — Step-by-step harness writing guide. Covers libFuzzer, but the harness patterns translate directly to AFL++.</li>
+    <li><a href="https://chromium.googlesource.com/chromium/src/+/main/testing/libfuzzer/README.md" target="_blank" rel="noopener">Chromium Fuzzing Guide</a> — Production-grade documentation from the team that has likely found more real-world bugs with fuzzing than anyone else.</li>
+    <li><a href="https://lcamtuf.blogspot.com/2014/11/afl-fuzz-nobody-expects-cdata-sections.html" target="_blank" rel="noopener">lcamtuf's blog</a> — Zalewski's posts on AFL findings and design decisions. Provides intuition that the technical documentation alone doesn't give.</li>
+    <li><a href="https://github.com/AFLplusplus/AFLplusplus/blob/stable/instrumentation/README.lto.md" target="_blank" rel="noopener">AFL++ LTO Instrumentation README</a> — Deep dive into LTO mode and PCGuard. Read when you need to understand the collision-free instrumentation architecture.</li>
+  </ul>
+</div>
+
+<div class="footer">
+  AFL Masterclass · Built with primary sources from Zalewski's technical_details.txt, AFL++ documentation, and ACM TOSEM research.
+</div>
+
+</div><!-- /.main-wrap -->
+
+<script>
+// ── STATE ────────────────────────────────────────────────────────
+const TOTAL_SECTIONS = 10;
+const XP_PER_SECTION = 50;
+const XP_PER_DAY     = 20;
+const XP_PER_MYTH    = 10;
+
+let state = JSON.parse(localStorage.getItem('aflmc') || '{}');
+// state = { sections: {s1: true, ...}, days: {day1: true, ...}, myths: {myth1: true, ...}, theme: 'dark' }
+state.sections = state.sections || {};
+state.days     = state.days     || {};
+state.myths    = state.myths    || {};
+state.theme    = state.theme    || 'dark';
+
+// ── THEME ────────────────────────────────────────────────────────
+function setTheme(t) {
+  state.theme = t;
+  document.documentElement.setAttribute('data-theme', t);
+  document.querySelectorAll('.theme-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.theme === t);
+  });
+  save();
+}
+
+// ── PROGRESS ─────────────────────────────────────────────────────
+function calcXP() {
+  const s = Object.values(state.sections).filter(Boolean).length * XP_PER_SECTION;
+  const d = Object.values(state.days).filter(Boolean).length     * XP_PER_DAY;
+  const m = Object.values(state.myths).filter(Boolean).length    * XP_PER_MYTH;
+  return s + d + m;
+}
+
+function updateUI() {
+  const done = Object.values(state.sections).filter(Boolean).length;
+  const xp   = calcXP();
+  const pct  = Math.round((done / TOTAL_SECTIONS) * 100);
+
+  document.getElementById('progress-fill').style.width = pct + '%';
+  document.getElementById('progress-pct').textContent  = pct + '%';
+  document.getElementById('xp-count').textContent = xp;
+  document.getElementById('stat-complete').textContent = done;
+  document.getElementById('stat-xp').textContent = xp;
+  document.getElementById('stat-days').textContent = Object.values(state.days).filter(Boolean).length;
+  document.getElementById('stat-myths').textContent = Object.values(state.myths).filter(Boolean).length;
+
+  // TOC checks
+  for (let i = 1; i <= TOTAL_SECTIONS; i++) {
+    const id = 's' + i;
+    const el = document.getElementById('toc-check-' + id);
+    if (el) el.classList.toggle('done', !!state.sections[id]);
+    if (el && state.sections[id]) el.textContent = '✓';
+  }
+}
+
+// ── SECTION COMPLETE ─────────────────────────────────────────────
+function markSection(id, btn) {
+  const already = state.sections[id];
+  state.sections[id] = !already;
+  btn.classList.toggle('done', state.sections[id]);
+  btn.textContent = state.sections[id] ? '✓ Complete' : 'Mark Complete';
+  btn.closest('.section').classList.toggle('completed', state.sections[id]);
+  if (state.sections[id]) toast('+' + XP_PER_SECTION + ' XP — Section complete!');
+  save(); updateUI();
+}
+
+// ── DAY COMPLETE ─────────────────────────────────────────────────
+function markDay(id, btn) {
+  const already = state.days[id];
+  state.days[id] = !already;
+  btn.classList.toggle('done', state.days[id]);
+  btn.textContent = state.days[id] ? '✓ Done' : 'Done';
+  btn.closest('.day-block').classList.toggle('day-done', state.days[id]);
+  if (state.days[id]) toast('+' + XP_PER_DAY + ' XP — Day logged!');
+  save(); updateUI();
+}
+
+// ── MYTH UNDERSTOOD ──────────────────────────────────────────────
+function markMyth(id, btn) {
+  const already = state.myths[id];
+  state.myths[id] = !already;
+  btn.classList.toggle('done', state.myths[id]);
+  btn.textContent = state.myths[id] ? '✓ Got it' : 'I understand this';
+  btn.closest('.misconception').classList.toggle('understood', state.myths[id]);
+  if (state.myths[id]) toast('+' + XP_PER_MYTH + ' XP — Myth busted!');
+  save(); updateUI();
+}
+
+// ── TOAST ────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ── PERSIST ──────────────────────────────────────────────────────
+function save() { localStorage.setItem('aflmc', JSON.stringify(state)); }
+
+// ── RESTORE STATE ─────────────────────────────────────────────────
+function restore() {
+  setTheme(state.theme);
+
+  // Sections
+  Object.keys(state.sections).forEach(id => {
+    if (!state.sections[id]) return;
+    const section = document.getElementById(id);
+    if (!section) return;
+    section.classList.add('completed');
+    const btn = section.querySelector('.complete-btn');
+    if (btn) { btn.classList.add('done'); btn.textContent = '✓ Complete'; }
+  });
+
+  // Days
+  Object.keys(state.days).forEach(id => {
+    if (!state.days[id]) return;
+    const block = document.getElementById(id);
+    if (!block) return;
+    block.classList.add('day-done');
+    const btn = block.querySelector('.day-complete-btn');
+    if (btn) { btn.classList.add('done'); btn.textContent = '✓ Done'; }
+  });
+
+  // Myths
+  Object.keys(state.myths).forEach(id => {
+    if (!state.myths[id]) return;
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('understood');
+    const btn = el.querySelector('.understand-btn');
+    if (btn) { btn.classList.add('done'); btn.textContent = '✓ Got it'; }
+  });
+
+  updateUI();
+}
+
+restore();
+</script>
+</body>
+</html>

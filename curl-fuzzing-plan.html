@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>curl Fuzzing Research Plan</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap');
+
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --border: #1e2229;
+    --accent: #f97316;
+    --accent2: #22d3ee;
+    --warn: #ef4444;
+    --ok: #22c55e;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --phase1: #7c3aed;
+    --phase2: #0891b2;
+    --phase3: #f97316;
+    --phase4: #16a34a;
+    --phase5: #dc2626;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    line-height: 1.6;
+    padding: 2rem 1rem;
+  }
+
+  .container { max-width: 860px; margin: 0 auto; }
+
+  header {
+    border-left: 4px solid var(--accent);
+    padding-left: 1.5rem;
+    margin-bottom: 3rem;
+  }
+
+  header .label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  header h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1.1;
+    color: #fff;
+  }
+
+  header p {
+    color: var(--muted);
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .warning-box {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    border-left: 4px solid var(--warn);
+    padding: 1rem 1.25rem;
+    border-radius: 4px;
+    margin-bottom: 2.5rem;
+    font-size: 0.88rem;
+    color: #fca5a5;
+  }
+
+  .warning-box strong {
+    color: var(--warn);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    display: block;
+    margin-bottom: 0.4rem;
+  }
+
+  .phase {
+    margin-bottom: 2rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem 1.25rem;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .phase-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    padding: 0.2rem 0.6rem;
+    border-radius: 3px;
+    white-space: nowrap;
+  }
+
+  .phase-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .phase-body { padding: 1.25rem; }
+
+  .step {
+    display: grid;
+    grid-template-columns: 1.5rem 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    align-items: start;
+  }
+
+  .step:last-child { margin-bottom: 0; }
+
+  .step-dot {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    margin-top: 0.1rem;
+  }
+
+  .step-content { }
+
+  .step-content strong {
+    display: block;
+    font-size: 0.9rem;
+    color: #fff;
+    margin-bottom: 0.2rem;
+  }
+
+  .step-content p {
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .step-content code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.78rem;
+    background: rgba(255,255,255,0.06);
+    padding: 0.1rem 0.4rem;
+    border-radius: 3px;
+    color: var(--accent2);
+  }
+
+  .hallucination-section {
+    margin-top: 2.5rem;
+    border: 1px solid rgba(249,115,22,0.3);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .hallucination-header {
+    background: rgba(249,115,22,0.1);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid rgba(249,115,22,0.2);
+  }
+
+  .hallucination-header h2 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.05em;
+  }
+
+  .hallucination-header p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.25rem;
+  }
+
+  .hal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0;
+  }
+
+  @media (max-width: 600px) {
+    .hal-grid { grid-template-columns: 1fr; }
+  }
+
+  .hal-card {
+    padding: 1.25rem;
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .hal-card:nth-child(2n) { border-right: none; }
+  .hal-card:nth-last-child(-n+2) { border-bottom: none; }
+
+  .hal-card .risk {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--warn);
+    margin-bottom: 0.4rem;
+  }
+
+  .hal-card h3 {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 0.4rem;
+  }
+
+  .hal-card p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  .hal-card .mitigation {
+    margin-top: 0.6rem;
+    padding: 0.5rem 0.75rem;
+    background: rgba(34,197,94,0.07);
+    border-left: 3px solid var(--ok);
+    border-radius: 2px;
+    font-size: 0.78rem;
+    color: #86efac;
+  }
+
+  .cve-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.82rem;
+    margin-top: 2.5rem;
+  }
+
+  .cve-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    background: var(--surface);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .cve-table td {
+    padding: 0.6rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+
+  .cve-table tr:last-child td { border-bottom: none; }
+
+  .cve-id {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent2);
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .vuln-class {
+    color: var(--accent);
+    font-size: 0.8rem;
+  }
+
+  .adjacent {
+    color: var(--muted);
+    font-size: 0.78rem;
+  }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  footer p {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  .ground-truth {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--ok);
+  }
+
+  /* Phase colors */
+  .p1 { background: rgba(124,58,237,0.15); color: #a78bfa; }
+  .p2 { background: rgba(8,145,178,0.15); color: #67e8f9; }
+  .p3 { background: rgba(249,115,22,0.15); color: #fdba74; }
+  .p4 { background: rgba(22,163,74,0.15); color: #86efac; }
+  .p5 { background: rgba(220,38,38,0.15); color: #fca5a5; }
+
+  .dot1 { background: rgba(124,58,237,0.2); color: #a78bfa; border: 1px solid #7c3aed; }
+  .dot2 { background: rgba(8,145,178,0.2); color: #67e8f9; border: 1px solid #0891b2; }
+  .dot3 { background: rgba(249,115,22,0.2); color: #fdba74; border: 1px solid #f97316; }
+  .dot4 { background: rgba(22,163,74,0.2); color: #86efac; border: 1px solid #16a34a; }
+  .dot5 { background: rgba(220,38,38,0.2); color: #fca5a5; border: 1px solid #dc2626; }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="label">100 Vibe Projects · Security Research</div>
+    <h1>curl CVE-Guided<br>Fuzzing Plan</h1>
+    <p>// AFL++ · Ghidra · Volatility · Hallucination-Resistant Workflow</p>
+  </header>
+
+  <div class="warning-box">
+    <strong>⚠ ANTI-SLOP CONTRACT</strong>
+    Every AI-suggested finding must be verified against actual source code, crash trace, or patch diff before being treated as real. Claude is a triage assistant, not an authority. Ground truth lives in the code.
+  </div>
+
+  <!-- PHASE 1 -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-num p1">PHASE 01</span>
+      <span class="phase-title">Environment Setup & Baseline Validation</span>
+    </div>
+    <div class="phase-body">
+      <div class="step">
+        <div class="step-dot dot1">1</div>
+        <div class="step-content">
+          <strong>Clone curl and build with sanitizers</strong>
+          <p>Build from source with <code>-fsanitize=address,undefined</code>. This is your bug detector — without it, crashes are silent.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot1">2</div>
+        <div class="step-content">
+          <strong>Install AFL++ with instrumentation</strong>
+          <p>Use <code>afl-clang-fast</code> to compile curl. Coverage-guided fuzzing only works if the binary is instrumented correctly. Verify with <code>afl-showmap</code>.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot1">3</div>
+        <div class="step-content">
+          <strong>Rediscover a known CVE first — validate your setup</strong>
+          <p>Checkout the vulnerable commit for CVE-2023-38545. Run your harness. If you can reproduce the known crash, your environment is trustworthy. If you can't, fix setup before proceeding. Do not skip this step.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-num p2">PHASE 02</span>
+      <span class="phase-title">CVE Pattern Mapping</span>
+    </div>
+    <div class="phase-body">
+      <div class="step">
+        <div class="step-dot dot2">1</div>
+        <div class="step-content">
+          <strong>Pull patch diffs for 3 anchor CVEs</strong>
+          <p>CVE-2023-38545 (SOCKS5 heap overflow), CVE-2022-32221 (POST redirect), CVE-2023-46218 (cookie handling). Read the actual diff — not summaries.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot2">2</div>
+        <div class="step-content">
+          <strong>Extract root cause pattern per CVE</strong>
+          <p>For each: what assumption was wrong? What input triggered it? What memory operation failed? Write this in one sentence per CVE in your own words.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot2">3</div>
+        <div class="step-content">
+          <strong>Use Claude to suggest adjacent functions — then verify manually</strong>
+          <p>Ask Claude which functions share the same pattern. Then open <code>lib/url.c</code> and related files and read the suggested functions yourself. Discard any suggestion you cannot verify in source.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-num p3">PHASE 03</span>
+      <span class="phase-title">Targeted Harness Construction</span>
+    </div>
+    <div class="phase-body">
+      <div class="step">
+        <div class="step-dot dot3">1</div>
+        <div class="step-content">
+          <strong>Write one focused harness per target function</strong>
+          <p>Do not fuzz <code>main()</code>. Write harnesses that call the specific vulnerable-pattern function directly with AFL-controlled input. Smaller attack surface = faster meaningful coverage.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot3">2</div>
+        <div class="step-content">
+          <strong>Build Ghidra-assisted dictionary</strong>
+          <p>Run Ghidra headless on the curl binary. Extract string constants, magic bytes, comparison literals. Feed as <code>-x dict</code> to AFL++. Now your mutations are semantically informed.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot3">3</div>
+        <div class="step-content">
+          <strong>Seed corpus from real traffic</strong>
+          <p>Capture legitimate curl request/response data as seeds. AFL mutates from working inputs faster than from random bytes.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-num p4">PHASE 04</span>
+      <span class="phase-title">Crash Triage Pipeline</span>
+    </div>
+    <div class="phase-body">
+      <div class="step">
+        <div class="step-dot dot4">1</div>
+        <div class="step-content">
+          <strong>Reproduce every crash manually first</strong>
+          <p>Run the crash input against the instrumented binary directly. Confirm it crashes reproducibly. If it doesn't reproduce, discard it — do not analyze phantoms.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot4">2</div>
+        <div class="step-content">
+          <strong>Deduplicate by stack trace, not by count</strong>
+          <p>AFL will find hundreds of inputs triggering the same bug. Group by crash address and call stack. One unique stack = one potential bug.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot4">3</div>
+        <div class="step-content">
+          <strong>Feed crash + source context to Claude for triage</strong>
+          <p>Provide the sanitizer output, the crashing input, and the relevant source function. Ask Claude to explain the crash. Then verify that explanation against the source yourself before recording it as a finding.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot4">4</div>
+        <div class="step-content">
+          <strong>Cross-reference against OSS-Fuzz and existing CVEs</strong>
+          <p>Before claiming a new finding, check OSS-Fuzz issue tracker and NVD. curl is heavily fuzzed. A "new" crash that's already known is a learning experience, not a failure.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PHASE 5 -->
+  <div class="phase">
+    <div class="phase-header">
+      <span class="phase-num p5">PHASE 05</span>
+      <span class="phase-title">Volatility Integration (Memory Track)</span>
+    </div>
+    <div class="phase-body">
+      <div class="step">
+        <div class="step-dot dot5">1</div>
+        <div class="step-content">
+          <strong>Start with a known memory forensics challenge</strong>
+          <p>Use CyberDefenders or MemLabs — images with known answers. Build confidence in your Volatility workflow before using it on original targets.</p>
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-dot dot5">2</div>
+        <div class="step-content">
+          <strong>Connect tracks: Volatility anomaly → Ghidra RE</strong>
+          <p>Flag a suspicious process in Volatility. Dump the PE. Feed to Ghidra for static analysis. This is the intersection point — and the workflow worth automating as a project entry.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HALLUCINATION CONTROLS -->
+  <div class="hallucination-section">
+    <div class="hallucination-header">
+      <h2>// HALLUCINATION_CONTROLS</h2>
+      <p>Where AI goes wrong in this workflow — and how to catch it</p>
+    </div>
+    <div class="hal-grid">
+      <div class="hal-card">
+        <div class="risk">Risk 01</div>
+        <h3>Fabricated function analysis</h3>
+        <p>Claude confidently describes what a function does — but hasn't seen the actual source, only inferred from context.</p>
+        <div class="mitigation">✓ Open the file. Read the function. Every time.</div>
+      </div>
+      <div class="hal-card">
+        <div class="risk">Risk 02</div>
+        <h3>Plausible but wrong adjacency</h3>
+        <p>Claude suggests function X has the same vulnerability pattern as the CVE. It sounds right but the code doesn't support it.</p>
+        <div class="mitigation">✓ Paste the actual function into Claude. Don't let it infer from a name.</div>
+      </div>
+      <div class="hal-card">
+        <div class="risk">Risk 03</div>
+        <h3>Crash misinterpretation</h3>
+        <p>Claude explains a crash trace convincingly but identifies the wrong root cause — missing a one-level-up allocation failure.</p>
+        <div class="mitigation">✓ Always provide full sanitizer output + source. Ask Claude to show its reasoning step by step.</div>
+      </div>
+      <div class="hal-card">
+        <div class="risk">Risk 04</div>
+        <h3>Already-known bug presented as new</h3>
+        <p>Claude doesn't know OSS-Fuzz's issue tracker. A finding it calls novel may be filed and patched already.</p>
+        <div class="mitigation">✓ Check OSS-Fuzz issues and NVD before claiming any finding. Takes 5 minutes.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CVE REFERENCE TABLE -->
+  <table class="cve-table">
+    <thead>
+      <tr>
+        <th>CVE</th>
+        <th>CLASS</th>
+        <th>ADJACENT TARGETS</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="cve-id">CVE-2023-38545</td>
+        <td class="vuln-class">Heap overflow · SOCKS5</td>
+        <td class="adjacent">Other proxy protocol handlers, length-prefixed buffer writes</td>
+      </tr>
+      <tr>
+        <td class="cve-id">CVE-2022-32221</td>
+        <td class="vuln-class">State confusion · redirect</td>
+        <td class="adjacent">Method persistence across redirects, header stripping logic</td>
+      </tr>
+      <tr>
+        <td class="cve-id">CVE-2023-46218</td>
+        <td class="vuln-class">Logic flaw · cookie</td>
+        <td class="adjacent">Domain matching, case normalization in other header parsers</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <footer>
+    <p>// mrdee.in · 100 vibe projects · security research track</p>
+    <span class="ground-truth">ground truth = source code, always</span>
+  </footer>
+
+</div>
+</body>
+</html>
