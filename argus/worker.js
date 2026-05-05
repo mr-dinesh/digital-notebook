@@ -293,7 +293,7 @@ const exportBtn    = $('exportBtn');
 // -- MODE DETECTION ----------------------------------------
 function detectMode(v) {
   v = v.trim();
-  if (/^https?:\/\//i.test(v)) return 'url';
+  if (v.startsWith('http://') || v.startsWith('https://')) return 'url';
   if (v.length > 100) return 'article';
   return 'claim';
 }
