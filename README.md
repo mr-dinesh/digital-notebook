@@ -16,5 +16,9 @@ A collection of small, self-contained projects built to solve actual problems.
 | `hn_blackout/` | Blackout poetry from Hacker News headlines | [live](https://hn-blackout.pages.dev/) |
 | `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor | [live](https://juicesec.mrdinesh.workers.dev/) |
 | `privyRead/` | Privacy-first reader — strips trackers, follows redirects, extracts clean article text | [live](https://privyread.pages.dev/) |
+| `live-social-stream/` | Real-time Bluesky + Mastodon infosec keyword feed | [live](https://signal-feed-8pl.pages.dev/) |
+| `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification | [live](https://afl-masterclass.pages.dev/) |
+| `mindful/` | Privacy-respecting mood / mindfulness check-in PWA | — |
+| `url-shortener/` | Custom-slug URL shortener + HTML admin UI | [live](https://s.mrdee.in/) |
 
 Write-ups at [mrdee.in/vibecoding](https://mrdee.in/vibecoding/).
