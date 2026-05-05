@@ -20,6 +20,12 @@ This is a collection of independent projects ("Vibe Coding" series):
 | `hn_blackout/` | Blackout poetry generated from Hacker News front-page headlines · [live](https://hn-blackout.pages.dev/) | Vanilla HTML/JS (no server) |
 | `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor · [live](https://juicesec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI |
 | `checklist/` | Personal essay (non-code, no runnable components) | Markdown + image |
+| `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification | Vanilla HTML/JS (no server) |
+| `curl-fuzzer/` | Coverage-guided fuzzing harnesses for curl (CVE research) | C + AFL++ + ASAN + Python |
+| `live-social-stream/` | Real-time Bluesky + Mastodon infosec keyword feed | Cloudflare Worker + Vanilla HTML/JS |
+| `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS |
+| `privyRead/` | Privacy-first article reader with tracker stripping | Cloudflare Worker + @mozilla/readability + PWA |
+| `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI | Cloudflare Worker + KV |
 
 ---
 
@@ -124,7 +130,7 @@ python app.py   # runs on http://localhost:7842
 ```
 
 ### Deploying (Render.com)
-`render.yaml` is pre-configured. Set `GOOGLE_API_KEY` and `ACCESS_PASSWORD` as env vars in the Render dashboard; `SECRET_KEY` is auto-generated.
+`render.yaml` is pre-configured — uses `gunicorn app:app` as the start command (not `python app.py`). Set `GOOGLE_API_KEY` and `ACCESS_PASSWORD` as env vars in the Render dashboard; `SECRET_KEY` is auto-generated.
 
 For a Cloudflare Tunnel instead, see `cloudflare/SETUP.md`.
 
@@ -284,6 +290,150 @@ wrangler dev              # local dev at http://localhost:8787
 | 08 | Command Injection | A03 | Shell metachar + file-reading command |
 | 09 | SSRF | A10 | Internal IP / cloud metadata URL |
 | 10 | Stored XSS | A03 | Script tag or event handler in comment board |
+
+---
+
+## afl-masterclass
+
+### Running
+```bash
+cd afl-masterclass
+python3 -m http.server 8000   # then open http://localhost:8000/afl-masterclass.html
+```
+
+### Deploying (Cloudflare Pages)
+```bash
+wrangler pages deploy afl-masterclass --project-name afl-masterclass --branch main
+```
+Live at https://afl-masterclass.pages.dev
+
+### Architecture
+- Single HTML file (`afl-masterclass.html`), no build step, no dependencies.
+- 10 sections covering AFL++ from first principles through adversarial critique. XP gamification (50 XP/section) and progress tracking persisted in `localStorage`.
+- Three themes (Dark/Light/Sepia) also persisted in `localStorage`.
+
+---
+
+## curl-fuzzer
+
+### Running
+```bash
+cd curl-fuzzer
+./install.sh          # install AFL++, LLVM 15, build deps (run once)
+./build_asan.sh       # build ASAN-instrumented curl (crash detection)
+./build_afl.sh        # build AFL++-instrumented curl (coverage)
+./run_afl.sh url      # start fuzzing; also: cookies, socks5
+./validate_cve38545.py  # reproduce CVE-2023-38545
+```
+`run_afl.sh` requires root for system tuning (`/proc/sys/kernel/core_pattern`, CPU governor).
+
+### Architecture
+- Three harnesses in `harnesses/`: `fuzz_url.c` (URL parsing), `fuzz_cookies.c` (cookie handling), `fuzz_socks5.c` (SOCKS5 hostname — target for CVE-2023-38545).
+- ASAN build finds crashes; AFL++ build explores coverage space. Use ASAN first to confirm a crash, then AFL++ for discovery.
+- `fuzz_socks5.c` uses a socketpair + POSIX thread greeter to drive curl's SOCKS5 state machine through handshake stages.
+- Crashes output to `crashes/<harness>-<timestamp>/`; deduplicate by stack trace, not count.
+- `curl-fuzzing-plan.html` at repo root is a standalone research planning doc (open in browser) — not part of the build.
+
+---
+
+## live-social-stream
+
+### Deploying
+```bash
+cd live-social-stream
+wrangler deploy   # deploys signal-proxy.worker.js (CORS proxy)
+
+# Frontend: update the WORKER_URL constant in live-feed.html to your deployed Worker URL, then:
+mkdir site && cp live-feed.html site/index.html
+wrangler pages deploy site --project-name signal-feed --branch main
+```
+Live at https://signal-feed-8pl.pages.dev
+
+### Architecture
+- `live-feed.html`: vanilla JS frontend. Searches Bluesky (`api.bsky.app`) and Mastodon (`mastodon.social/infosec.exchange`) in parallel, deduplicates by post ID, merges by recency. Auto-refreshes every 20 seconds.
+- `signal-proxy.worker.js`: allow-listed CORS proxy — only `api.bsky.app` and `mastodon.social` hostnames can be forwarded. Per-source error handling so one network failure doesn't blank the feed.
+- Mastodon hashtag search works without auth; keyword search requires a Mastodon auth token added client-side.
+
+---
+
+## mindful
+
+### Deploying
+```bash
+cd mindful
+wrangler deploy   # Worker serves both the HTML and the API
+```
+
+### Architecture
+- Single Cloudflare Worker (`worker.js`) embeds the full frontend HTML inline — no separate Pages deployment.
+- D1 SQLite database binding `DB` (see `wrangler.toml` for `database_id`). Schema in `schema.sql`: one `checkins` table with `UNIQUE(date, slot) ON CONFLICT REPLACE`. Columns include `breath_chip`, `breath_custom`, `mind_chip`, `mind_custom`, and `shift` (for shift-work context tracking).
+- 5 time slots per day: morning, noon, evening, night, sleep.
+- API routes: `POST /api/checkin`, `GET /api/stats` (streak + heatmap + top moods), `GET /api/stats/public`, `POST /api/pin-check`.
+- Env vars: `MINDFUL_PIN` (optional — if set, all API calls require `X-Pin` header); `MINDFUL_PUBLIC_STATS` (optional — enables the public stats endpoint).
+
+---
+
+## privyRead
+
+For a full step-by-step deployment walkthrough, see `privyRead/privyread-deploy.md`.
+
+### Deploying
+```bash
+# Step 1: deploy the Worker
+cd privyRead/privyread-worker
+npm install   # @mozilla/readability + linkedom
+wrangler deploy
+
+# Step 2: update WORKER_URL constant in privyread-index.html to your Worker URL, then:
+mkdir pages && cp ../privyread-index.html pages/index.html && cp ../privyread-manifest.json pages/manifest.json
+wrangler pages deploy pages --project-name privyread
+```
+
+### Architecture
+- Worker (`privyread-worker/worker.js`): fetches the target URL server-side, strips 29 tracking params (utm_*, fbclid, gclid, etc.), follows redirects (≤5 hops), runs Mozilla Readability + linkedom to extract clean article HTML.
+- Requires `compatibility_flags = ["nodejs_compat"]` in `wrangler.toml` (uses Node.js APIs).
+- Frontend (`privyread-index.html`): PWA. `privyread-manifest.json` registers an Android share target so links shared from other apps open directly in PrivyRead.
+- Install on Android: open the Pages URL in Brave/Chrome → menu → "Add to Home Screen".
+
+---
+
+## url-shortener
+
+### Setup (run once)
+```bash
+cd url-shortener
+# Create KV namespace and paste the IDs into wrangler.toml
+wrangler kv namespace create URL_SHORTENER
+wrangler kv namespace create URL_SHORTENER --preview
+# Set admin password as a secret (prompted interactively)
+wrangler secret put ADMIN_PASSWORD
+```
+
+### Deploying
+```bash
+cd url-shortener
+wrangler deploy                              # worker → s.mrdee.in
+
+# Admin UI: update WORKER_URL in admin/index.html, then:
+mkdir -p pages && cp admin/index.html pages/index.html
+wrangler pages deploy pages --project-name go-admin --branch main
+```
+
+### Architecture
+- `worker.js`: handles all traffic at `s.mrdee.in`.
+  - `GET /<slug>` — KV lookup → `301` redirect or branded `404` HTML page.
+  - `GET /api/links` — lists all slugs + destinations (auth required).
+  - `POST /api/links` — `{slug, url}` — creates/overwrites a slug (auth required). Sanitises slug to `[a-z0-9_-]`.
+  - `DELETE /api/links/<slug>` — removes a slug (auth required).
+- Auth: `Authorization: Bearer <password>` header checked against `ADMIN_PASSWORD` secret (env var). Defaults to `"changeme"` if unset — always set the secret before deploying.
+- KV namespace binding: `URL_SHORTENER` (configure IDs in `wrangler.toml` after `wrangler kv namespace create`).
+- `admin/index.html`: single-file admin UI for Cloudflare Pages. Password stored in `sessionStorage` (cleared on tab close). Update the `WORKER_URL` constant before deploying.
+
+---
+
+## Testing
+
+No test suite exists in any project. There are no pytest, jest, or other test frameworks configured anywhere in this repo.
 
 ---
 

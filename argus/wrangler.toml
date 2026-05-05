@@ -1,8 +1,0 @@
-name = "argus-proxy"
-main = "worker.js"
-compatibility_date = "2024-01-01"
-
-
-[[kv_namespaces]]
-binding = "RATE_LIMIT"
-id = "6258b86c235640e9ac3ba4371a840972"
