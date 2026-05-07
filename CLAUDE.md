@@ -27,6 +27,7 @@ This is a collection of independent projects ("Vibe Coding" series):
 | `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS |
 | `privyRead/` | Privacy-first article reader with tracker stripping | Cloudflare Worker + @mozilla/readability + PWA |
 | `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI | Cloudflare Worker + KV |
+| `slashsec/` | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI |
 
 ---
 
@@ -446,6 +447,27 @@ wrangler pages deploy pages --project-name go-admin --branch main
 - Auth: `Authorization: Bearer <password>` header checked against `ADMIN_PASSWORD` secret (env var). Defaults to `"changeme"` if unset — always set the secret before deploying.
 - KV namespace binding: `URL_SHORTENER` (configure IDs in `wrangler.toml` after `wrangler kv namespace create`).
 - `admin/index.html`: single-file admin UI for Cloudflare Pages. Password stored in `sessionStorage` (cleared on tab close). Update the `WORKER_URL` constant before deploying.
+
+---
+
+## slashsec
+
+Lives in a separate repo at `/home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard/`.
+
+### Deploying
+```bash
+cd /home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard
+wrangler deploy   # deploys to https://slashsec.mrdinesh.workers.dev
+wrangler dev      # local dev at http://localhost:8787
+```
+
+### Architecture
+- Single Cloudflare Worker (`worker.js`) serving the full UI and all API routes.
+- `GET /` — serves the inlined HTML/CSS/JS dashboard.
+- `POST /fetch` — server-side RSS proxy; allowlisted to 7 domains (isc.sans.edu, schneier.com, krebsonsecurity.com, bleepingcomputer.com, feedburner.com, this.weekinsecurity.com, techcrunch.com).
+- `POST /groq` — runs AI summarisation via Workers AI (`@cf/meta/llama-3.1-8b-instruct`) using the `[ai]` binding; no external API key needed.
+- No secrets required — `[ai]` binding in `wrangler.toml` handles auth automatically.
+- `SlashSec_Dashboard.html` is the canonical HTML source; the inlined copy in `worker.js` is kept in sync manually.
 
 ---
 
