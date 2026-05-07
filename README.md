@@ -18,6 +18,7 @@ A collection of small, self-contained projects built to solve actual problems.
 | `privyRead/` | Privacy-first reader — strips trackers, follows redirects, extracts clean article text | [live](https://privyread.pages.dev/) |
 | `live-social-stream/` | Real-time Bluesky + Mastodon infosec keyword feed | [live](https://signal-feed-8pl.pages.dev/) |
 | `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification | [live](https://afl-masterclass.pages.dev/) |
+| `slashsec/` | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries | [live](https://slashsec.mrdinesh.workers.dev/) |
 | `mindful/` | Privacy-respecting mood / mindfulness check-in PWA | — |
 | `url-shortener/` | Custom-slug URL shortener + HTML admin UI | [live](https://s.mrdee.in/) |
 
