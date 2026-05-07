@@ -15,13 +15,14 @@ This is a collection of independent projects ("Vibe Coding" series):
 | `whatsapp_links/` | Extract and categorize unique links from WhatsApp chat export ZIPs → Excel | Python 3 + Flask |
 | `ciso_articulator/` | Communication drill tool for security leaders (board, interview, CV modes) | Python 3 + Flask + Google Gemini |
 | `yaraweave/` | Browser-only YARA rule generator from threat intel feeds | Vanilla HTML/JS (no server) |
-| `argus/` | Argument intelligence tool — steelman/strawman/synthesis analysis · [live](https://argus-proxy.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI |
+| `argus/` | Argument intelligence tool — steelman/strawman/synthesis analysis · [live](https://argus-proxy.mrdinesh.workers.dev/) | Cloudflare Worker + Groq |
 | `npp_quotes/` | 247 Notepad++ quotes extracted from C++ source → JSON/txt | Python 3 (single script) |
 | `hn_blackout/` | Blackout poetry generated from Hacker News front-page headlines · [live](https://hn-blackout.pages.dev/) | Vanilla HTML/JS (no server) |
 | `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor · [live](https://juicesec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI |
 | `checklist/` | Personal essay (non-code, no runnable components) | Markdown + image |
 | `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification | Vanilla HTML/JS (no server) |
 | `curl-fuzzer/` | Coverage-guided fuzzing harnesses for curl (CVE research) | C + AFL++ + ASAN + Python |
+| `bitwarden-fuzz/` | Coverage-guided fuzzing harnesses for Bitwarden components (crypto + parsing) | AFL++ + ASAN |
 | `live-social-stream/` | Real-time Bluesky + Mastodon infosec keyword feed | Cloudflare Worker + Vanilla HTML/JS |
 | `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS |
 | `privyRead/` | Privacy-first article reader with tracker stripping | Cloudflare Worker + @mozilla/readability + PWA |
@@ -218,8 +219,8 @@ wrangler dev              # local dev at http://localhost:8787
 - Single Cloudflare Worker (`worker.js`) that both serves the UI and handles API routes.
 - `GET /` — serves the full Argus HTML app (inlined into the worker).
 - `POST /fetch` — proxies article URLs server-side to avoid CORS issues, returns cleaned text.
-- `POST /analyse` — calls `@cf/meta/llama-3.1-8b-instruct` via Workers AI; returns JSON with `core_thesis`, `steelman`, `steelman_crux`, `strawman`, `strawman_crux`, `synthesis`, `real_crux`, `evidence_that_changes_it`, `actionable`.
-- Uses the `[ai]` binding in `wrangler.toml` — no external LLM API key needed; billed through Cloudflare Workers AI.
+- `POST /analyse` — calls Groq API (`llama-3.3-70b-versatile`); returns JSON with `core_thesis`, `steelman`, `steelman_crux`, `strawman`, `strawman_crux`, `synthesis`, `real_crux`, `evidence_that_changes_it`, `actionable`.
+- Requires `GROQ_API_KEY` Wrangler secret (`wrangler secret put GROQ_API_KEY`). No `[ai]` binding needed.
 - Rate limiting via KV: `RATE_LIMIT` KV namespace (configured in `wrangler.toml`) enforces 20 req/90 s on `/fetch` and 10 req/90 s on `/analyse` per IP. If `RATE_LIMIT` binding is absent, rate limiting is silently skipped.
 
 ---
@@ -336,6 +337,23 @@ cd curl-fuzzer
 
 ---
 
+## bitwarden-fuzz
+
+### Running
+```bash
+cd bitwarden-fuzz
+./install.sh   # install AFL++, build deps
+./build.sh     # build instrumented target
+./run.sh       # start fuzzing
+```
+
+### Architecture
+- Coverage-guided fuzzing harnesses for Bitwarden's crypto and parsing components using AFL++ + ASAN.
+- `sdk/` contains the Bitwarden SDK source used as the fuzzing target.
+- Has its own `.git` repo (separate from the Vibecoding monorepo).
+
+---
+
 ## live-social-stream
 
 ### Deploying
@@ -438,6 +456,8 @@ No test suite exists in any project. There are no pytest, jest, or other test fr
 ---
 
 ## Blog (digital-journal)
+
+`rajni/` in this repo is a standalone Hugo 404 page template (PaperMod theme) — just `404.html` with Hugo frontmatter, no runnable components.
 
 The mrdee.in blog is a separate repo at `/home/tester/Desktop/repos/digital-journal/`. It is a Hugo site using the Congo theme, deployed via Cloudflare Pages on push to `main`.
 
