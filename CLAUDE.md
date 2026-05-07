@@ -4,30 +4,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository Overview
 
-This is a collection of independent projects ("Vibe Coding" series):
+This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.com/mr-dinesh/digital-notebook).
 
-| Project | Purpose | Stack |
+| Project | Purpose | Stack | GitHub |
+|---|---|---|---|
+| `APKanalysis/` | Android APK static security analysis | Python 3 + Flask | [Offline-APK-Analyzer](https://github.com/mr-dinesh/Offline-APK-Analyzer) |
+| `kagga_bot/` | Kannada poetry scraper / Mastodon bot data | Python 3 + BeautifulSoup | [Kagga-Bot](https://github.com/mr-dinesh/Kagga-Bot) |
+| `StreamingServer/` | Self-hosted personal radio server (`radiostack/` subdir) | Docker, Node.js, Liquidsoap, Icecast2 | [home-media-player](https://github.com/mr-dinesh/home-media-player) |
+| `WealthOfNationsReader/` | Password-protected LLM reader for The Wealth of Nations | Python 3 + Flask + Google Gemini | [Wealth_of_Nations_Reader_App](https://github.com/mr-dinesh/Wealth_of_Nations_Reader_App) |
+| `whatsapp_links/` | Extract and categorize unique links from WhatsApp chat export ZIPs → Excel | Python 3 + Flask | [link-archive](https://github.com/mr-dinesh/link-archive) |
+| `ciso_articulator/` | Communication drill tool for security leaders (board, interview, CV modes) | Python 3 + Flask + Google Gemini | [ciso-articulator](https://github.com/mr-dinesh/ciso-articulator) |
+| `yaraweave/` | Browser-only YARA rule generator from threat intel feeds | Vanilla HTML/JS (no server) | [yaraweave](https://github.com/mr-dinesh/yaraweave) |
+| `argus/` | Argument intelligence tool — steelman/strawman/synthesis analysis · [live](https://argus-proxy.mrdinesh.workers.dev/) | Cloudflare Worker + Groq | [argus](https://github.com/mr-dinesh/argus) |
+| `npp_quotes/` | 247 Notepad++ quotes extracted from C++ source → JSON/txt | Python 3 (single script) | [npp-quotes](https://github.com/mr-dinesh/npp-quotes) |
+| `hn_blackout/` | Blackout poetry generated from Hacker News front-page headlines · [live](https://hn-blackout.pages.dev/) | Vanilla HTML/JS (no server) | [hn-blackout](https://github.com/mr-dinesh/hn-blackout) |
+| `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor · [live](https://juicesec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [juicesec](https://github.com/mr-dinesh/juicesec) |
+| `checklist/` | Personal essay (non-code, no runnable components) | Markdown + image | — |
+| `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification · [live](https://afl-masterclass.pages.dev/) | Vanilla HTML/JS (no server) | [afl-masterclass](https://github.com/mr-dinesh/afl-masterclass) |
+| `curl-fuzzer/` | Coverage-guided fuzzing harnesses for curl (CVE research) | C + AFL++ + ASAN + Python | — |
+| `bitwarden-fuzz/` | Coverage-guided fuzzing harnesses for Bitwarden components (crypto + parsing) | AFL++ + ASAN | — |
+| `live-social-stream/` | Real-time Bluesky + Mastodon infosec keyword feed · [live](https://signal-feed-8pl.pages.dev/) | Cloudflare Worker + Vanilla HTML/JS | [signal-live](https://github.com/mr-dinesh/signal-live) |
+| `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS | — |
+| `privyRead/` | Privacy-first article reader with tracker stripping · [live](https://privyread.pages.dev/) | Cloudflare Worker + @mozilla/readability + PWA | — |
+| `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI · [live](https://s.mrdee.in/) | Cloudflare Worker + KV | — |
+| `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
+
+¹ `slashsec` is a separate repo, not a subdirectory — local path: `/home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard/`
+
+### Standalone repos (not in this monorepo)
+
+| Repo | Description | Local path |
 |---|---|---|
-| `APKanalysis/` | Android APK static security analysis | Python 3 + Flask |
-| `kagga_bot/` | Kannada poetry scraper / Mastodon bot data | Python 3 + BeautifulSoup |
-| `StreamingServer/radiostack/` | Self-hosted personal radio server | Docker, Node.js, Liquidsoap, Icecast2 |
-| `WealthOfNationsReader/` | Password-protected LLM reader for The Wealth of Nations | Python 3 + Flask + Google Gemini |
-| `whatsapp_links/` | Extract and categorize unique links from WhatsApp chat export ZIPs → Excel | Python 3 + Flask |
-| `ciso_articulator/` | Communication drill tool for security leaders (board, interview, CV modes) | Python 3 + Flask + Google Gemini |
-| `yaraweave/` | Browser-only YARA rule generator from threat intel feeds | Vanilla HTML/JS (no server) |
-| `argus/` | Argument intelligence tool — steelman/strawman/synthesis analysis · [live](https://argus-proxy.mrdinesh.workers.dev/) | Cloudflare Worker + Groq |
-| `npp_quotes/` | 247 Notepad++ quotes extracted from C++ source → JSON/txt | Python 3 (single script) |
-| `hn_blackout/` | Blackout poetry generated from Hacker News front-page headlines · [live](https://hn-blackout.pages.dev/) | Vanilla HTML/JS (no server) |
-| `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor · [live](https://juicesec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI |
-| `checklist/` | Personal essay (non-code, no runnable components) | Markdown + image |
-| `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification | Vanilla HTML/JS (no server) |
-| `curl-fuzzer/` | Coverage-guided fuzzing harnesses for curl (CVE research) | C + AFL++ + ASAN + Python |
-| `bitwarden-fuzz/` | Coverage-guided fuzzing harnesses for Bitwarden components (crypto + parsing) | AFL++ + ASAN |
-| `live-social-stream/` | Real-time Bluesky + Mastodon infosec keyword feed | Cloudflare Worker + Vanilla HTML/JS |
-| `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS |
-| `privyRead/` | Privacy-first article reader with tracker stripping | Cloudflare Worker + @mozilla/readability + PWA |
-| `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI | Cloudflare Worker + KV |
-| `slashsec/` | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI |
+| [digital-journal](https://github.com/mr-dinesh/digital-journal) | mrdee.in blog — Hugo/Congo, deployed via Cloudflare Pages | `/home/tester/Desktop/repos/digital-journal/` |
+| [SlashSec_style-Infosec-RSS-Dashboard](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) | Slashdot-style infosec news dashboard (see `slashsec` row above) | `/home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard/` |
+| [wodehouse-bot](https://github.com/mr-dinesh/wodehouse-bot) | P.G. Wodehouse quote bot posting to Bluesky twice daily | `/home/tester/Desktop/repos/wodehouse-bot/` |
+| [Vibecoding001-PureLink_browser_addon](https://github.com/mr-dinesh/Vibecoding001-PureLink_browser_addon) | Browser extension for URL sanitisation | — |
+| [Vibecoding_002_VIZMIX](https://github.com/mr-dinesh/Vibecoding_002_VIZMIX--Winamp-inspired-3D-audio-visualize) | Winamp-inspired 3D audio visualiser | — |
+| [Vibecoding_003_Webscraping-Podcast](https://github.com/mr-dinesh/Vibecoding_003_Webscraping-Podcast-) | Think Fast Talk Smart podcast scraper | — |
+| [Vibecoding-004-Interview-Simulator](https://github.com/mr-dinesh/Vibecoding-004-Interview-Simulator-Webapp) | Interview simulator and prep tool | — |
+| [android-tab-tweak](https://github.com/mr-dinesh/android-tab-tweak) | Root Lenovo TB-X605LC for zRAM / memory pressure fix | — |
+| [eie-recommendations](https://github.com/mr-dinesh/eie-recommendations) | EiE podcast book/music/article recommendations | — |
+| [parliamentwatch](https://github.com/mr-dinesh/parliamentwatch) | Indian Parliamentary Committee report tracker | — |
 
 ---
 
