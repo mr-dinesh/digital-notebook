@@ -5,7 +5,7 @@
 > free courses / hands-on.
 >
 > **Interactive version** (progress saves in your browser, exports back to this file):
-> https://claude.ai/code/artifact/9402ec45-c74d-4826-860c-deee7f277e24
+> https://mrdee.in/kernel-plan/
 
 Tick a box with `[x]` and add the date you finished it — e.g. `- [x] (2026-07-12) ...`.
 The web tracker stamps these automatically and can re-export this file for you.
