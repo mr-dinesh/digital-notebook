@@ -132,8 +132,19 @@ docker compose down
 - All services communicate over Docker bridge network `radionet`.
 - Music files are mounted from `/home/tester/Music` on the host into all relevant containers. The `scripts/duckdns.sh` script handles dynamic DNS updates for external access.
 
-### Important: Credentials in Config Files
-`icecast.xml` and `radio.liq` contain hardcoded passwords (`radio123`, `Admin_tester@123`). Change these before any external deployment.
+### Credentials
+Secrets live in `radiostack/.env` (gitignored) — nothing is hardcoded in the configs.
+
+```bash
+cd StreamingServer/radiostack
+cp .env.example .env          # then fill in with: openssl rand -base64 24
+./scripts/gen-icecast-config.sh   # renders icecast/icecast.xml from the template
+docker compose up -d
+```
+
+- `icecast/icecast.xml.template` is the committed source; `icecast/icecast.xml` is generated (mode 600, gitignored). Re-run the script after any `.env` change.
+- `radio.liq` reads `ICECAST_SOURCE_PASSWORD` from the environment via `environment.get()` and shuts down if it's empty. Docker Compose passes it through from `.env` and fails fast if unset.
+- Values must not contain `&`, `<`, or `>` — they land in XML text nodes unescaped. The generator rejects them.
 
 ---
 
