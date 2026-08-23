@@ -8,3 +8,5 @@ __pycache__/
 venv/
 
 # review_queue.csv is deliberately NOT ignored — the hand verdicts are the point.
+logs/
+.run_weekly.lock
