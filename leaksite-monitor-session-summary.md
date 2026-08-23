@@ -16,10 +16,10 @@ filtered to an India view over a rolling 90-day window.
 |---|---|
 | `leaksite_india_monitor.py` | the whole tool: fetch, cache, normalise, flag, join, store, report (~990 lines, single file) |
 | `review_editor.html` + `review_server.py` | local editor for adjudicating ambiguous victims by hand |
-| `run_weekly.sh` | unattended weekly wrapper (locking, logging, cache pruning) |
 | `review_queue.csv` | 66 hand-adjudicated verdicts — the one artifact that cannot be regenerated |
 | `README.md` | caveats, field semantics, why each decision was made |
 | `.claude/skills/ransomware-leaks-analysis/SKILL.md` | the durable feed knowledge, at monorepo level |
+| `run_weekly.sh` + crontab | Mondays 06:30, live fetch, locking, log deltas, cache pruning |
 
 Outputs per run: `victims.duckdb`, `victims_export.csv`, `review_queue.csv`,
 `raw/<source>/<timestamp>__<tag>.json`.
@@ -30,11 +30,11 @@ strings and never dereferenced. Only two hosts are ever contacted (verified by g
 ## Current results (window 2026-05-25 → 2026-08-23)
 
 - ransomware.live 2,589 records · RansomLook 2,723 · both feeds fresh to 2026-08-23
-- Join: 2,373 in both · 199 only ransomware.live · 319 only RansomLook
-- India after hand verdicts: **72** (ransomware.live) + **37** (RansomLook) = 109 records,
-  **73 distinct victims**
+- Join: 2,394 in both · 188 only ransomware.live · 311 only RansomLook
+- India after hand verdicts: **72** (ransomware.live) + **41** (RansomLook) = 113 records,
+  **74 distinct victims**
 - Top group: The Gentlemen 35, then krybit 9, morpheus 6, nova 5, dragonforce 5
-- Sectors: Manufacturing 20, Technology 15, Healthcare 10 — and 37 unknown
+- Sectors: Manufacturing 20, Technology 15, Healthcare 10 — and 41 unknown
 - Multi-group claims: 81 records across 32 victims
 
 ## API facts established by probing (not assumed)
@@ -65,9 +65,10 @@ screen, private, misp_uuid, group_name`. `discovered` has no timezone (UTC).
 much the country tags miss. `india_final` layers hand verdicts on top; the raw flags stay
 visible beside it.
 
-**A missing field is NULL, never 0.** RansomLook has no country field and no domain in
-practice, so both flags report `n/a`. Printing `0` would read as "found no Indian victims",
-which is a different claim. Decided per payload, so the flag activates if the field appears.
+**A missing field is NULL, never 0.** RansomLook has no country field, so `country_tagged`
+reports `n/a` there. Printing `0` would read as "found no Indian victims", which is a
+different claim. `tld_in` is decided per row: real wherever a domain was recovered
+(including from the post title), NULL only where there is nothing to answer with.
 
 **`ai_generated` is a blanket per-source flag** — the user assumed ransomware.live labels
 AI-generated descriptions. **It does not.** No such field exists in either API and the v2
@@ -103,7 +104,11 @@ foreign parent's country tag (a Kolkata freight firm tagged US).
    8.7k rows meant 8.7k fsyncs — 12 minutes in uninterruptible disk wait before it was
    killed. Fixed by loading the bulk table from CSV in one `read_csv` statement (0.5s) and
    wrapping the small tables in one transaction.
-4. **The first editor did nothing in Brave.** It used the File System Access API, which
+4. **`normalise_name` kept the scheme on URL-shaped titles** (`https://www.nitrex.in`), so
+   those never matched the same company under a plain name. Stripping scheme and `www`
+   moved 21 victims from single-feed to `in_both` — the join had been overstating how much
+   the two feeds diverge.
+5. **The first editor did nothing in Brave.** It used the File System Access API, which
    Brave and Firefox ship disabled, so the picker never opened and the page sat at "no
    file loaded". Rebuilt around a localhost POST endpoint (`review_server.py`) that
    validates before writing and refuses empty files, unknown verdicts, changed row counts,
@@ -122,7 +127,8 @@ foreign parent's country tag (a Kolkata freight firm tagged US).
 ## Verdict outcome
 
 66 rows adjudicated: 45 `india`, 21 `not_india`. The automation agreed on 51; 15 records
-changed. India totals moved 78 → 72 and 44 → 37. Seven `not_india` calls were no-ops
+changed. India totals moved 78 → 72 (ransomware.live) and, at that time, 44 → 37 for
+RansomLook — now 48 → 41 after title-domain recovery. Seven `not_india` calls were no-ops
 because a verdict keys on (victim, source, group) and so covers re-posts on other dates
 whose empty description never tripped a flag.
 
@@ -136,10 +142,16 @@ days keeping the newest per tag, and keeps 26 logs.
 
 ## Known limitations — read before quoting any number
 
-- **RansomLook's 37 is soft.** With no country and no domain field, India detection there
-  is text-only. A RansomLook-only Indian victim posted as "Acme Ltd — 500GB" has nothing
-  to match on. 319 victims were seen only by RansomLook.
-- **37 of 109 India records have no sector**, nearly all RansomLook. Any sector cut is
+- **RansomLook's 41 is soft, and this was investigated rather than assumed.** Domains are
+  now recovered from post titles where the title *is* a domain (562 rows), but that does
+  **not** close the gap: of 546 title-derived domains only 5 are `.in`, and all 5 belong to
+  victims ransomware.live already reports. Cross-filling domains from ransomware.live is
+  worse — it fires only where a twin exists, which is never the gap. The 311 victims
+  RansomLook alone sees are still screened by text signal only, because the feed does not
+  carry the information. Description-text extraction was measured and rejected: it yields
+  unrelated hosts (`Login.gov`), sentence artifacts (`data.The`) and attacker out-of-band
+  callback domains (`*.oast.me`).
+- **41 of 113 India records have no sector**, nearly all RansomLook. Any sector cut is
   really a cut of the ransomware.live subset, whose sector tags are inferred enrichment.
 - **May and August are partial months** in the window; the August "drop" is truncation.
 - **`data_size` is sparse** — 26 of 926 rows in a sampled month.
@@ -150,8 +162,10 @@ days keeping the newest per tag, and keeps 26 logs.
 
 ## Open items
 
-1. Decide whether to fix the RansomLook India recall gap (cross-fill domains the way
-   country already is) or document it and move on.
+1. ~~Fix the RansomLook India recall gap.~~ **Attempted and closed as not fixable from
+   that feed's data** — see the limitation above. Title-domain recovery shipped anyway
+   (it makes `tld_in` answerable for 562 rows and improved the join), but the gap itself
+   stands and any output must say so.
 2. Decide what the dataset is for. If it becomes a mrdee.in post, the story is the method
    — the country tags missed 14 of 72, and one feed cannot answer the question at all.
 3. `review_server.py` may still be running on 127.0.0.1:8765. Stop with
