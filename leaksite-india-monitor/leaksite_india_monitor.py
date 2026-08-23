@@ -126,7 +126,7 @@ REVIEW_COLUMNS = ["victim", "source", "group", "domain", "country_tag", "my_verd
 
 # Column order for the flat export / DuckDB victims_norm table.
 NORM_COLUMNS = [
-    "source", "victim_original", "victim_norm", "group_name",
+    "source", "victim_original", "victim_norm", "group_name", "group_norm",
     "discovered_ts", "discovered_date", "attack_date",
     "domain", "domain_raw", "country_raw", "country_tagged",
     "country_borrowed", "country_borrowed_from",
@@ -855,8 +855,17 @@ def report(rows: list[dict], counts: dict, joins: dict, freshness: dict,
           Counter(r["sector"] or "(unknown)" for r in india).most_common())
 
     rule("INDIA VICTIMS BY GROUP")
-    table(["group", "victims"],
-          Counter(r["group_name"] or "(unknown)" for r in india).most_common())
+    print("  (grouped on the normalised name — the feeds spell the same group differently,\n"
+          "   which would otherwise split one actor across two rows)")
+    # Label each cluster with its most common raw spelling.
+    spellings: dict[str, Counter] = defaultdict(Counter)
+    for r in india:
+        spellings[r["group_norm"] or "(unknown)"][r["group_name"] or "(unknown)"] += 1
+    table(["group", "victims", "spellings seen"],
+          [[counts.most_common(1)[0][0], sum(counts.values()),
+            ", ".join(sorted(counts)) if len(counts) > 1 else ""]
+           for _, counts in sorted(spellings.items(),
+                                   key=lambda kv: -sum(kv[1].values()))])
 
     rule("INDIA VICTIMS BY MONTH")
     table(["month", "victims"],
