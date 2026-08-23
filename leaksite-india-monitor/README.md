@@ -133,6 +133,35 @@ copied to `review_queue.csv.bak` first. Verdicts override the computed flags in
 `india_final` only — the three raw flags stay untouched alongside it, so you can always
 see what the automation thought.
 
+### Filling it in
+
+Editing 66 rows of quoted CSV by hand is miserable, so there is a small local editor:
+
+```bash
+python3 review_server.py     # then open http://127.0.0.1:8765/review_editor.html
+```
+
+One row per queue entry, showing the name, group, domain, the source's country tag and
+the reason the automation punted — plus the description where one exists, labelled so
+ransomware.live's unlabelled enrichment is never mistaken for evidence. Keys: `1` india,
+`2` not_india, `3` india_sub, `0` clear, `j`/`k` move, `n` note, `d` expand description,
+`Ctrl+S` save. Your notes are appended after `||` rather than overwriting the routing
+reason.
+
+The page talks to `review_server.py` instead of using the browser's File System Access
+API, because Brave and Firefox ship that API disabled and a picker-based editor silently
+does nothing there. The server binds `127.0.0.1` only, exists for the length of the
+session (Ctrl-C to stop), and refuses any POST that would damage the queue: empty file,
+unknown verdict, changed row count, or missing columns. It backs up to
+`review_queue.csv.bak` and writes through a temp file plus atomic rename.
+
+Stop it with `pkill -f "[r]eview_server.py"` — the brackets matter, or `pkill -f` matches
+the shell you typed it in.
+
+Nothing in the editor pre-fills or suggests a verdict. That column is yours.
+
+---
+
 Commit `review_queue.csv`. It is the accumulated hand judgement and the one file here
 that cannot be regenerated.
 
