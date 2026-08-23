@@ -27,6 +27,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS | — |
 | `privyRead/` | Privacy-first article reader with tracker stripping · [live](https://privyread.pages.dev/) | Cloudflare Worker + @mozilla/readability + PWA | — |
 | `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI · [live](https://s.mrdee.in/) | Cloudflare Worker + KV | — |
+| `leaksite-india-monitor/` | India-focused ransomware leak-site victim pull from ransomware.live + RansomLook, 90-day window | Python 3 + DuckDB | — |
 | `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
 
 ¹ `slashsec` is a separate repo, not a subdirectory — local path: `/home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard/`
@@ -475,6 +476,27 @@ wrangler pages deploy pages --project-name go-admin --branch main
 - Auth: `Authorization: Bearer <password>` header checked against `ADMIN_PASSWORD` secret (env var). Defaults to `"changeme"` if unset — always set the secret before deploying.
 - KV namespace binding: `URL_SHORTENER` (configure IDs in `wrangler.toml` after `wrangler kv namespace create`).
 - `admin/index.html`: single-file admin UI for Cloudflare Pages. Password stored in `sessionStorage` (cleared on tab close). Update the `WORKER_URL` constant before deploying.
+
+---
+
+## leaksite-india-monitor
+
+### Running
+```bash
+cd leaksite-india-monitor
+pip install --user requests duckdb tldextract
+python3 leaksite_india_monitor.py            # live pull, ~4 min (1 req/min rate limit)
+python3 leaksite_india_monitor.py --offline  # rerun from ./raw cache, no network
+```
+
+- Single file, no keys. Outputs `victims.duckdb`, `victims_export.csv`, `review_queue.csv`.
+- `review_queue.csv` holds hand verdicts (`india` / `not_india` / `india_sub`) that persist
+  across runs and override the automation. It is the one artifact here that cannot be
+  regenerated — commit it.
+- Metadata only: no archives, no onion fetches, no magnets followed.
+- **Before touching the fetch or normalisation logic, use the `ransomware-leaks-analysis`
+  skill** (`.claude/skills/`) — it carries the verified endpoints, the per-endpoint field
+  aliases, and the normalisation traps that silently corrupt these comparisons.
 
 ---
 

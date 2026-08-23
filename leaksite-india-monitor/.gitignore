@@ -1,0 +1,10 @@
+raw/
+*.duckdb
+*.duckdb.wal
+victims_export.csv
+review_queue.csv.bak
+review_queue.csv.tmp
+__pycache__/
+venv/
+
+# review_queue.csv is deliberately NOT ignored — the hand verdicts are the point.
