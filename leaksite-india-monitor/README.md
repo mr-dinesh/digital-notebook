@@ -85,10 +85,26 @@ verdicts). The point of keeping all three is to show how much the country tags m
 
 **RansomLook has no country field**, so its `country_tagged` is `NULL`, and the report
 prints `n/a` — not `0`. A zero would read as "RansomLook found no Indian victims", which
-would be false. The same applies to `tld_in`: RansomLook's documented `website` field is
-absent from the live payload, so its domain column is empty and `tld_in` is `NULL`/`n/a`
-too. If the field ever starts arriving, the flag switches to real values automatically —
-the run decides per payload, not per source.
+would be false.
+
+`tld_in` is decided **per row**, not per source. RansomLook's documented `website` field is
+absent from the live payload, but many of its post titles *are* the victim's domain
+(`acehospital.in`, `bits-pilani.ac.in`), so a domain is recovered from the title where the
+whole title parses as one — 562 rows in a recent window. `domain_source` records where each
+domain came from (`field`, `title`, or empty), so a parsed value is never mistaken for one
+the feed supplied. `tld_in` is NULL only where there is genuinely nothing to answer with.
+
+Domains were **not** extracted from description text. That was measured and rejected: the
+corpus yields unrelated hosts (`Login.gov`), sentence artifacts (`data.The`) and attacker
+out-of-band callback domains (`*.oast.me`), which would attribute a stranger's domain to a
+victim.
+
+**This does not close the RansomLook recall gap.** Of 546 title-derived domains, 5 were
+`.in` and all 5 belonged to victims ransomware.live already reports. Cross-filling domains
+from ransomware.live is worse still — it can only fire where a twin already exists, which
+is never the gap. The ~300 victims RansomLook alone sees are still screened by text signal
+only, and no amount of parsing its payload changes that: the feed does not carry the
+information.
 
 The `needs_review` matcher records which term fired (in the review-queue `note`), because
 the term is usually the whole argument. Real example from a live run: a California golf

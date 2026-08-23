@@ -128,7 +128,7 @@ REVIEW_COLUMNS = ["victim", "source", "group", "domain", "country_tag", "my_verd
 NORM_COLUMNS = [
     "source", "victim_original", "victim_norm", "group_name", "group_norm",
     "discovered_ts", "discovered_date", "attack_date",
-    "domain", "domain_raw", "country_raw", "country_tagged",
+    "domain", "domain_raw", "domain_source", "country_raw", "country_tagged",
     "country_borrowed", "country_borrowed_from",
     "sector", "sector_inferred",
     "data_size", "data_size_parsed",
@@ -189,6 +189,12 @@ def normalise_name(name: str | None) -> str:
     if not name:
         return ""
     text = name.lower()
+    # Titles are sometimes URLs ("https://www.nitrex.in"). Strip the scheme and www so
+    # they normalise to the same key as the plain company name in the other feed —
+    # otherwise the join reports one victim twice, once per source.
+    text = re.sub(r"^\s*[a-z]+://", "", text)
+    text = re.sub(r"^www\.", "", text)
+    text = text.rstrip("/")
     # Leak-post titles often carry a trailing descriptor after a colon or pipe.
     text = re.split(r"[|]", text)[0]
     text = re.sub(r"[^\w\s.&-]", " ", text)
@@ -222,6 +228,20 @@ def registrable_domain(value: str | None) -> str:
     if hasattr(parts, "top_domain_under_public_suffix"):
         return parts.top_domain_under_public_suffix or ""
     return parts.registered_domain or ""
+
+
+# RansomLook has no usable domain field, but many of its post titles ARE the victim's
+# domain ("acehospital.in", "vcnyhome.com"). Only whole-title matches are accepted.
+# Domains scraped out of description text were measured and rejected: that corpus is
+# full of unrelated hosts (Login.gov) and attacker out-of-band callback domains
+# (*.oast.me), which would attribute a stranger's domain to a victim.
+TITLE_DOMAIN_RE = re.compile(r"^(?:https?://)?((?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,})/?$",
+                             re.IGNORECASE)
+
+
+def domain_from_title(title: str | None) -> str:
+    match = TITLE_DOMAIN_RE.match((title or "").strip())
+    return registrable_domain(match.group(1)) if match else ""
 
 
 SIZE_RE = re.compile(r"\b(?:size|data\s*leaked|leaked\s*data)\s*[:\-]?\s*"
@@ -402,6 +422,11 @@ def normalise_records(source: str, records: list[dict], start: date, end: date) 
             description = ""
         domain_raw = first_alias(record, aliases.get("domain", [])) or ""
         domain = registrable_domain(domain_raw)
+        domain_source = "field" if domain else ""
+        if not domain:
+            domain = domain_from_title(victim_original)
+            if domain:
+                domain_source = "title"
         country_raw = (first_alias(record, aliases.get("country", [])) or "").strip()
 
         if source == SRC_RW:
@@ -437,6 +462,7 @@ def normalise_records(source: str, records: list[dict], start: date, end: date) 
             "attack_date": attack_dt.date() if attack_dt else None,
             "domain": domain,
             "domain_raw": domain_raw,
+            "domain_source": domain_source,
             "country_raw": country_raw,
             "country_tagged": country_tagged,
             "country_borrowed": "",
@@ -530,13 +556,15 @@ def apply_india_flags(rows: list[dict], domain_available: dict[str, bool]) -> No
     """Three independent flags. Never collapsed into one."""
     for row in rows:
         country_tagged = bool(row["country_tagged"])
-        if not domain_available.get(row["source"], True):
-            # The feed carries no domain field at all in this payload: NULL, not False.
-            # A False here would read as "no Indian domains found", which is not what
-            # the absence of the field means.
-            tld_in: bool | None = None
+        if row["domain"]:
+            tld_in: bool | None = row["domain"].endswith(".in")
+        elif not domain_available.get(row["source"], True):
+            # No domain for this row and none anywhere in the payload: NULL, not False.
+            # A False would read as "no Indian domain found", which is a different claim
+            # from "this feed cannot answer".
+            tld_in = None
         else:
-            tld_in = row["domain"].endswith(".in") if row["domain"] else False
+            tld_in = False
         terms = india_signal_terms(row["victim_original"], row["description"])
         needs_review = bool(terms and not country_tagged and not tld_in)
 
@@ -950,7 +978,7 @@ def main(argv: list[str] | None = None) -> int:
         print("\n" + banner)
 
     # A feed that carries no domain field at all must not report tld_in = 0.
-    domain_available = {s: any(r["domain_raw"] for r in rows if r["source"] == s)
+    domain_available = {s: any(r["domain"] for r in rows if r["source"] == s)
                         for s in (SRC_RW, SRC_RL)}
     for source, available in domain_available.items():
         if not available:
