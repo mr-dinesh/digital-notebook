@@ -107,6 +107,15 @@ Ambiguous records land in `review_queue.csv`:
 victim, source, group, domain, country_tag, my_verdict, note
 ```
 
+> **`review_queue.csv` is unadjudicated input, not findings.** A company appears here
+> because the automation could not decide, and rows with an empty `my_verdict` have had no
+> human look at them at all. Several are in the file precisely because the tool suspects
+> the *source feed* has misattributed them — a US tribal organisation and an Ecuadorean
+> firm both landed here for having "Indian" in the name. Every row is republished from
+> public leak-site feeds and none of it is a disclosure, but do not read the list as
+> "Indian ransomware victims", and do not quote a row as a finding until its verdict is
+> filled in.
+
 Fill `my_verdict` with `india`, `not_india`, or `india_sub` (Indian subsidiary or delivery
 centre of a foreign parent). `note` is prefilled with why the record was routed here on
 first sight; edit it freely.
