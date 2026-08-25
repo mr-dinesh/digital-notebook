@@ -180,8 +180,12 @@ Nothing in the editor pre-fills or suggests a verdict. That column is yours.
 
 ---
 
-Commit `review_queue.csv` **and** `categories.csv`. They are the accumulated hand
-judgement and the only files here that cannot be regenerated.
+`review_queue.csv` and `categories.csv` are **not** committed, and are gitignored. They
+name real organisations against unverified attacker claims, and this repo is public.
+
+They are still the only two files here that cannot be regenerated, so they need a backup
+that isn't git. Copy them somewhere outside the working tree after any adjudication
+session. Losing them costs every hand verdict and every category label.
 
 ## Vendor categories
 

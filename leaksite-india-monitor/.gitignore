@@ -2,14 +2,16 @@ raw/
 *.duckdb
 *.duckdb.wal
 victims_export.csv
-review_queue.csv.bak
-review_queue.csv.tmp
-# backups and recovery snapshots of categories.csv — the file itself is committed
-categories.csv.*
 __pycache__/
 venv/
-
-# review_queue.csv and categories.csv are deliberately NOT ignored — the hand verdicts
-# and the hand-assigned vendor taxonomy are the point, and neither can be regenerated.
 logs/
 .run_weekly.lock
+
+# review_queue.csv and categories.csv are NOT committed: they name real organisations
+# against unverified attacker claims, and this repo is public. They remain the two
+# artifacts here that cannot be regenerated, so back them up out-of-band. The code is
+# shareable; the victim data stays local.
+review_queue.csv
+review_queue.csv.*
+categories.csv
+categories.csv.*

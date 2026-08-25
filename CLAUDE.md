@@ -494,7 +494,9 @@ python3 leaksite_india_monitor.py --offline  # rerun from ./raw cache, no networ
 - `review_queue.csv` holds hand verdicts (`india` / `not_india` / `india_sub`) per record;
   `categories.csv` holds the hand-assigned vendor taxonomy per entity, plus `same_as` for
   merging entities normalisation split apart. Both persist across runs and override the
-  automation. They are the only artifacts here that cannot be regenerated — commit them.
+  automation. They are the only artifacts here that cannot be regenerated, but they are
+  **gitignored, not committed** — they name real organisations against unverified attacker
+  claims and this repo is public. Back them up outside git after any adjudication session.
 - Count entities via the `india_entities` DuckDB view, not `count(distinct victim_norm)`:
   the view folds `same_as` aliases together. The feeds' own `sector` field is inferred and
   labels vendors by their customers' industry — never use it in place of `vendor_category`.
