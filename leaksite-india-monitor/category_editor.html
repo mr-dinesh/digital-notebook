@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vendor categories — leaksite-india-monitor</title>
+<style>
+  :root {
+    --bg: #12141a; --card: #1a1d26; --line: #2b303c; --fg: #e6e8ee; --dim: #949bb0;
+    --accent: #6f9bd8; --warnc: #c8933a; --ok: #4ea672; --bad: #c4574f;
+    --c-it: #6f9bd8; --c-prod: #8f7fd0; --c-mfg: #b0873f; --c-hc: #4ea672;
+    --c-fin: #4a9c9c; --c-other: #6d7488;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg);
+         font: 15px/1.5 ui-sans-serif, system-ui, sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--bg);
+           border-bottom: 1px solid var(--line); padding: 12px 20px;
+           display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  .grow { flex: 1; }
+  button, select { font: inherit; background: var(--card); color: var(--fg);
+           border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px;
+           cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #0d1017;
+                   font-weight: 600; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  #status { color: var(--dim); font-size: 13px; }
+  #status.dirty { color: var(--warnc); }
+  #status.saved { color: var(--ok); }
+  #counts { color: var(--dim); font-size: 13px; }
+  main { padding: 16px 20px 130px; max-width: 1150px; margin: 0 auto; }
+  .row { background: var(--card); border: 1px solid var(--line); border-left-width: 4px;
+         border-radius: 8px; padding: 14px 16px; margin-bottom: 12px; }
+  .row.cur { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .row[data-c="it_services_bpo"]          { border-left-color: var(--c-it); }
+  .row[data-c="product_software"]         { border-left-color: var(--c-prod); }
+  .row[data-c="manufacturing_industrial"] { border-left-color: var(--c-mfg); }
+  .row[data-c="healthcare_life_sciences"] { border-left-color: var(--c-hc); }
+  .row[data-c="financial_services"]       { border-left-color: var(--c-fin); }
+  .row[data-c="other"]                    { border-left-color: var(--c-other); }
+  .row[data-c=""]                         { border-left-color: var(--bad); }
+  .row.merged { opacity: .55; }
+  .name { font-size: 16px; font-weight: 600; }
+  .meta { color: var(--dim); font-size: 13px; margin: 4px 0 8px; }
+  .meta code { color: var(--fg); background: #232734; padding: 1px 5px; border-radius: 4px; }
+  .flag { font-size: 11px; text-transform: uppercase; letter-spacing: .05em;
+          padding: 1px 6px; border-radius: 4px; margin-left: 6px; }
+  .flag.soft { background: #3a2c17; color: #d2b98a; }
+  .flag.mine { background: #1f2a38; color: #9dc0ea; }
+  .why { font-size: 13px; color: #d2b98a; margin-bottom: 8px; }
+  .cats { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .cats button { padding: 5px 9px; font-size: 13px; }
+  .cats button[data-active="1"] { background: var(--accent); color: #0d1017;
+                                  border-color: var(--accent); font-weight: 600; }
+  .second { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  input.note, select.same { background: #0e1015; color: var(--fg);
+               border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  input.note { flex: 1; min-width: 200px; }
+  select.same { max-width: 260px; }
+  .lbl { color: var(--dim); font-size: 12px; }
+  .hint { color: var(--dim); font-size: 12px; padding: 8px 20px; border-top: 1px solid var(--line);
+          position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); }
+  .hint b { color: var(--fg); }
+  .warn { background: #2a1d1d; border: 1px solid #5c3434; color: #e8b4b0;
+          padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Vendor categories</h1>
+  <button id="reload">Reload</button>
+  <button id="save" class="primary" disabled>Save (⌘/Ctrl+S)</button>
+  <select id="filter">
+    <option value="all">all rows</option>
+    <option value="flagged" selected>borderline + uncertain only</option>
+    <option value="it">it_services_bpo + product_software</option>
+    <option value="blank">unlabelled</option>
+  </select>
+  <span id="counts"></span>
+  <span class="grow"></span>
+  <span id="status">no file loaded</span>
+</header>
+
+<main>
+  <div class="warn" id="intro">
+    Unlike the review queue, these rows <strong>are pre-filled with a machine guess</strong> —
+    treat every one as a proposal, not a starting truth. The rows marked
+    <span class="flag soft">borderline</span> or <span class="flag soft">uncertain</span> were
+    classified from the company name alone. The line that carries the argument is
+    <em>it_services_bpo</em> (sells engineering/IT/BPO capacity to other firms) versus
+    <em>product_software</em> (sells its own product to end users); demoting the weak
+    it_services_bpo calls materially lowers the headline share, so decide them deliberately.
+    Use <em>same as</em> when two rows are one company that normalisation split apart.
+  </div>
+  <div id="rows"></div>
+</main>
+
+<div class="hint">
+  <b>1</b> it_services_bpo &nbsp; <b>2</b> product_software &nbsp; <b>3</b> manufacturing
+  &nbsp; <b>4</b> healthcare &nbsp; <b>5</b> financial &nbsp; <b>6</b> other &nbsp; <b>0</b> clear
+  &nbsp;·&nbsp; <b>j/k</b> move &nbsp; <b>n</b> note &nbsp; <b>Ctrl+S</b> save
+</div>
+
+<script>
+// ---- CSV round-trip, matching Python's csv module (QUOTE_MINIMAL, CRLF) -------------
+function parseCSV(text) {
+  if (text.charCodeAt(0) === 0xFEFF) text = text.slice(1);
+  const rows = []; let row = [], field = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"') { if (text[i + 1] === '"') { field += '"'; i++; } else q = false; }
+      else field += c;
+    } else if (c === '"') q = true;
+    else if (c === ',') { row.push(field); field = ''; }
+    else if (c === '\r') { /* handled with \n */ }
+    else if (c === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+    else field += c;
+  }
+  if (field !== '' || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(r => r.length > 1 || (r[0] || '').trim() !== '');
+}
+const needsQuote = s => /[",\r\n]/.test(s);
+const enc = s => needsQuote(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+const toCSV = (header, objs) =>
+  [header.join(','), ...objs.map(o => header.map(h => enc(o[h] ?? '')).join(','))]
+    .join('\r\n') + '\r\n';
+
+// ---- state ---------------------------------------------------------------------------
+const CATS = ['it_services_bpo', 'product_software', 'manufacturing_industrial',
+              'healthcare_life_sciences', 'financial_services', 'other'];
+const SHORT = { it_services_bpo: 'IT services / BPO', product_software: 'product software',
+                manufacturing_industrial: 'manufacturing', healthcare_life_sciences: 'healthcare',
+                financial_services: 'financial', other: 'other' };
+let header = [], rows = [], view = [], cur = 0, dirty = false;
+const $ = s => document.querySelector(s);
+
+function setStatus(msg, cls = '') { const el = $('#status'); el.textContent = msg; el.className = cls; }
+function markDirty() { dirty = true; $('#save').disabled = false; setStatus('unsaved changes', 'dirty'); }
+const isFlagged = r => /BORDERLINE|UNCERTAIN/i.test(r.note || '');
+
+function visible() {
+  const mode = $('#filter').value;
+  if (mode === 'flagged') return rows.filter(isFlagged);
+  if (mode === 'it') return rows.filter(r => r.vendor_category === 'it_services_bpo'
+                                          || r.vendor_category === 'product_software');
+  if (mode === 'blank') return rows.filter(r => !(r.vendor_category || '').trim());
+  return rows;
+}
+
+function render() {
+  view = visible();
+  if (cur >= view.length) cur = Math.max(0, view.length - 1);
+  const box = $('#rows'); box.innerHTML = '';
+  view.forEach((r, i) => {
+    const el = document.createElement('div');
+    el.className = 'row' + (i === cur ? ' cur' : '') + (r.same_as ? ' merged' : '');
+    el.dataset.c = r.vendor_category || '';
+    el.innerHTML = `
+      <div class="name"></div>
+      <div class="meta">
+        <code class="k"></code> · <span class="d"></span> ·
+        feed sector <span class="s"></span><span class="flags"></span>
+      </div>
+      <div class="why"></div>
+      <div class="cats">
+        ${CATS.map((c, n) => `<button data-cat="${c}">${n + 1} ${SHORT[c]}</button>`).join('')}
+        <button data-cat="">clear</button>
+      </div>
+      <div class="second">
+        <span class="lbl">same as</span>
+        <select class="same"></select>
+        <input class="note" placeholder="note — why this call (optional)">
+      </div>`;
+    el.querySelector('.name').textContent = r.victim_example || r.victim_norm;
+    el.querySelector('.k').textContent = r.victim_norm;
+    el.querySelector('.d').textContent = r.domain || 'no domain';
+    el.querySelector('.s').textContent = r.inferred_sector || '—';
+    const flags = el.querySelector('.flags');
+    if (isFlagged(r)) flags.insertAdjacentHTML('beforeend',
+      `<span class="flag soft">${/BORDERLINE/i.test(r.note) ? 'borderline' : 'uncertain'}</span>`);
+    if (r.vendor_category) flags.insertAdjacentHTML('beforeend',
+      '<span class="flag mine">pre-filled guess</span>');
+    el.querySelector('.why').textContent = r.note || '';
+
+    // "same as" folds a row into another entity. Self and already-merged rows are
+    // excluded so a chain cannot be built by accident from the UI.
+    const sel = el.querySelector('.same');
+    sel.innerHTML = '<option value="">— separate entity —</option>' +
+      rows.filter(o => o.victim_norm !== r.victim_norm && !(o.same_as || '').trim())
+          .map(o => `<option value="${o.victim_norm}">${o.victim_norm}</option>`).join('');
+    sel.value = r.same_as || '';
+    sel.onchange = () => { r.same_as = sel.value; markDirty(); render(); };
+
+    el.querySelectorAll('button[data-cat]').forEach(b => {
+      if (b.dataset.cat === (r.vendor_category || '')) b.dataset.active = '1';
+      b.onclick = () => { cur = i; setCat(b.dataset.cat); };
+    });
+    const note = el.querySelector('.note');
+    note.value = r.note ?? '';
+    note.oninput = () => { r.note = note.value; markDirty(); };
+    note.onfocus = () => { cur = i; };
+    box.appendChild(el);
+  });
+  updateCounts();
+}
+
+function updateCounts() {
+  const live = rows.filter(r => !(r.same_as || '').trim());
+  const by = c => live.filter(r => r.vendor_category === c).length;
+  const it = by('it_services_bpo');
+  const blank = live.filter(r => !(r.vendor_category || '').trim()).length;
+  $('#counts').textContent =
+    `${live.length} entities · IT/BPO ${it} (${Math.round(it / live.length * 100)}%) · ` +
+    `mfg ${by('manufacturing_industrial')} · other ${by('other')} · ` +
+    `hc ${by('healthcare_life_sciences')} · fin ${by('financial_services')} · ` +
+    `prod ${by('product_software')}` + (blank ? ` · ${blank} unlabelled` : '') +
+    ` · ${rows.length - live.length} merged · showing ${view.length}`;
+}
+
+function setCat(c) {
+  const r = view[cur]; if (!r) return;
+  r.vendor_category = c;
+  const el = $('#rows').children[cur];
+  el.dataset.c = c;
+  el.querySelectorAll('button[data-cat]').forEach(b => {
+    if (b.dataset.cat === c) b.dataset.active = '1'; else delete b.dataset.active;
+  });
+  markDirty(); updateCounts();
+  if (c) move(1);
+}
+
+function move(delta) {
+  cur = Math.max(0, Math.min(view.length - 1, cur + delta));
+  [...$('#rows').children].forEach((el, i) => el.classList.toggle('cur', i === cur));
+  $('#rows').children[cur]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+}
+
+// ---- file I/O -------------------------------------------------------------------------
+// Read and written through review_server.py: Brave and Firefox ship the File System
+// Access API disabled, so a picker-based editor silently does nothing here.
+async function load() {
+  setStatus('loading…');
+  let text;
+  try {
+    const res = await fetch('api/categories', { cache: 'no-store' });
+    if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
+    text = await res.text();
+  } catch (err) {
+    setStatus(`cannot reach review_server.py — ${err.message}`, 'dirty');
+    $('#intro').insertAdjacentHTML('beforeend',
+      '<p><strong>Start the backend:</strong> <code>python3 review_server.py</code> ' +
+      'in the project directory, then reload this page.</p>');
+    return;
+  }
+  const parsed = parseCSV(text);
+  // Copy, never alias: `header` gains a column below, and mutating parsed[0] in place
+  // would shift every data row one column left when they are mapped against it.
+  const fileHeader = parsed[0].slice();
+  header = fileHeader.slice();
+  // The same_as column post-dates the first written file; tolerate its absence so an
+  // older categories.csv still loads and gains the column on save.
+  if (!header.includes('same_as')) {
+    const at = header.indexOf('note');
+    header.splice(at === -1 ? header.length : at, 0, 'same_as');
+  }
+  rows = parsed.slice(1).map(r => {
+    const o = Object.fromEntries(fileHeader.map((h, i) => [h, r[i] ?? '']));
+    for (const h of header) if (!(h in o)) o[h] = '';
+    return o;
+  });
+  cur = 0; dirty = false; $('#save').disabled = true;
+  $('#intro').style.display = 'none';
+  render();
+  setStatus(`${rows.length} rows loaded`);
+}
+
+$('#filter').onchange = () => { cur = 0; render(); };
+$('#reload').onclick = () => {
+  if (dirty && !confirm('Discard unsaved category changes and reload from disk?')) return;
+  load();
+};
+
+$('#save').onclick = async () => {
+  if (!rows.length) return;
+  setStatus('saving…');
+  const out = rows.map(r => Object.fromEntries(header.map(h => [h, r[h] ?? ''])));
+  try {
+    const res = await fetch('api/categories', {
+      method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: toCSV(header, out),
+    });
+    const msg = await res.text();
+    if (!res.ok) { setStatus(`save refused: ${msg}`, 'dirty'); return; }
+    dirty = false; $('#save').disabled = true;
+    setStatus(`${msg} — ${new Date().toLocaleTimeString()}`, 'saved');
+  } catch (err) {
+    setStatus(`save failed: ${err.message} — your edits are still in this page`, 'dirty');
+  }
+};
+
+load();
+
+addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); $('#save').click(); return; }
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') {
+    if (e.key === 'Escape') e.target.blur();
+    return;
+  }
+  if (!view.length) return;
+  const k = e.key;
+  if (k >= '1' && k <= '6') setCat(CATS[+k - 1]);
+  else if (k === '0') setCat('');
+  else if (k === 'j' || k === 'ArrowDown') { e.preventDefault(); move(1); }
+  else if (k === 'k' || k === 'ArrowUp') { e.preventDefault(); move(-1); }
+  else if (k === 'n') { e.preventDefault(); $('#rows').children[cur]?.querySelector('.note').focus(); }
+});
+
+addEventListener('beforeunload', e => { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+</script>
+</body>
+</html>

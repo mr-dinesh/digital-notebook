@@ -124,6 +124,22 @@ VERDICTS = {"india", "not_india", "india_sub", ""}
 
 REVIEW_COLUMNS = ["victim", "source", "group", "domain", "country_tag", "my_verdict", "note"]
 
+# Hand-assigned vendor taxonomy. Kept in its own CSV, keyed on victim_norm, because it
+# answers a different question from the review queue: the queue adjudicates "is this
+# India?" per record, this labels "what kind of business is it?" per entity. The upstream
+# `sector` field is inferred and unverified, so it is a starting suggestion only.
+VENDOR_CATEGORIES = {
+    "it_services_bpo",          # sells engineering/IT/BPO capacity to other firms
+    "product_software",         # sells its own software or platform to end users
+    "manufacturing_industrial",
+    "healthcare_life_sciences",
+    "financial_services",
+    "other",
+    "",
+}
+CATEGORY_COLUMNS = ["victim_norm", "victim_example", "domain", "inferred_sector",
+                    "vendor_category", "same_as", "note"]
+
 # Column order for the flat export / DuckDB victims_norm table.
 NORM_COLUMNS = [
     "source", "victim_original", "victim_norm", "group_name", "group_norm",
@@ -136,6 +152,7 @@ NORM_COLUMNS = [
     "claim_url", "magnet", "record_url",
     "tld_in", "needs_review", "india_any",
     "verdict", "india_final",
+    "vendor_category", "entity_key",
     "multi_group_claim", "claiming_groups", "claim_dates",
 ]
 
@@ -679,6 +696,128 @@ def apply_verdicts(rows: list[dict], review: dict) -> None:
 
 
 # --------------------------------------------------------------------------------------
+# Vendor categories (hand-assigned, per entity, persist across runs)
+# --------------------------------------------------------------------------------------
+
+def load_categories(path: Path) -> dict[str, dict]:
+    if not path.exists():
+        return {}
+    existing: dict[str, dict] = {}
+    with path.open(newline="", encoding="utf-8") as handle:
+        for entry in csv.DictReader(handle):
+            key = (entry.get("victim_norm") or "").strip()
+            if not key:
+                continue
+            category = (entry.get("vendor_category") or "").strip().lower()
+            if category and category not in VENDOR_CATEGORIES:
+                print(f"  WARNING: categories.csv has unrecognised vendor_category "
+                      f"{category!r} for {key!r} — ignored (use "
+                      f"{' / '.join(sorted(c for c in VENDOR_CATEGORIES if c))})")
+                entry["vendor_category"] = ""
+            existing[key] = entry
+    return existing
+
+
+def sync_categories(path: Path, rows: list[dict]) -> tuple[dict[str, dict], int]:
+    """Load saved categories, append every newly-seen India entity, never rewrite a row.
+
+    Only india_final entities are queued: categorising the whole feed is not the job.
+    One row per victim_norm, so a victim appearing in both sources is labelled once.
+    """
+    existing = load_categories(path)
+    ordered: list[dict] = list(existing.values())
+    appended = 0
+
+    for row in rows:
+        if not row.get("india_final"):
+            continue
+        key = row["victim_norm"] or row["victim_original"].lower()
+        if key in existing:
+            # Fill in context that was blank when the row was first queued, without
+            # ever touching the hand-set vendor_category or note.
+            entry = existing[key]
+            if not (entry.get("domain") or "").strip() and row.get("domain"):
+                entry["domain"] = row["domain"]
+            if not (entry.get("inferred_sector") or "").strip() and row.get("sector"):
+                entry["inferred_sector"] = row["sector"]
+            continue
+        entry = {
+            "victim_norm": key,
+            "victim_example": row["victim_original"],
+            "domain": row.get("domain") or "",
+            "inferred_sector": row.get("sector") or "",
+            "vendor_category": "",
+            "note": "",
+        }
+        ordered.append(entry)
+        existing[key] = entry
+        appended += 1
+
+    if ordered:
+        if path.exists():
+            shutil.copy2(path, path.with_suffix(path.suffix + ".bak"))
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        fieldnames = list(CATEGORY_COLUMNS)
+        for entry in ordered:  # preserve any extra columns added by hand
+            for name in entry:
+                if name not in fieldnames:
+                    fieldnames.append(name)
+        with tmp.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            for entry in sorted(ordered, key=lambda e: e["victim_norm"]):
+                writer.writerow(entry)
+        os.replace(tmp, path)
+
+    return existing, appended
+
+
+def resolve_same_as(categories: dict[str, dict]) -> dict[str, str]:
+    """Map every victim_norm to its canonical entity key by following same_as.
+
+    Normalisation cannot always tell that two leak-post titles name one company — a
+    title that is a bare URL ("https://www.nitrex.in") and the plain company name
+    ("Nitrex Chemicals India") strip to different keys, and merging on shared domain is
+    unsafe because some records carry a lookup-site domain rather than the victim's own.
+    So the merge is a hand judgment recorded in categories.csv, like the verdicts.
+    """
+    canonical: dict[str, str] = {}
+    for key in categories:
+        seen = [key]
+        current = key
+        while True:
+            target = ((categories.get(current) or {}).get("same_as") or "").strip()
+            if not target or target == current:
+                break
+            if target not in categories:
+                print(f"  WARNING: categories.csv same_as for {current!r} points at "
+                      f"{target!r}, which is not a known entity — ignored")
+                break
+            if target in seen:
+                print(f"  WARNING: categories.csv same_as forms a cycle at {target!r} "
+                      f"— ignored, {key!r} left standalone")
+                current = key
+                break
+            seen.append(target)
+            current = target
+        canonical[key] = current
+    return canonical
+
+
+def apply_categories(rows: list[dict], categories: dict[str, dict]) -> None:
+    canonical = resolve_same_as(categories)
+    for row in rows:
+        key = row["victim_norm"] or row["victim_original"].lower()
+        entity = canonical.get(key, key)
+        row["entity_key"] = entity
+        # The category is read from the canonical entity, so a merged alias inherits
+        # the label rather than needing its own.
+        entry = categories.get(entity) or categories.get(key) or {}
+        category = (entry.get("vendor_category") or "").strip().lower()
+        row["vendor_category"] = category if category in VENDOR_CATEGORIES else ""
+
+
+# --------------------------------------------------------------------------------------
 # Join
 # --------------------------------------------------------------------------------------
 
@@ -751,7 +890,7 @@ def duckdb_column_spec() -> str:
 
 
 def store(db_path: Path, csv_path: Path, rows: list[dict], raw_counts: dict,
-          joined: list[dict], review: dict) -> None:
+          joined: list[dict], review: dict, categories: dict) -> None:
     import duckdb
 
     export_rows = [to_export_row(r) for r in rows]
@@ -790,6 +929,29 @@ def store(db_path: Path, csv_path: Path, rows: list[dict], raw_counts: dict,
                         [[e.get("victim"), e.get("source"), e.get("group"), e.get("domain"),
                           e.get("country_tag"), e.get("my_verdict"), e.get("note")]
                          for e in review.values()])
+        con.execute("""CREATE TABLE categories (victim_norm TEXT, victim_example TEXT,
+                       domain TEXT, inferred_sector TEXT, vendor_category TEXT,
+                       same_as TEXT, note TEXT)""")
+        con.executemany("INSERT INTO categories VALUES (?,?,?,?,?,?,?)",
+                        [[e.get("victim_norm"), e.get("victim_example"), e.get("domain"),
+                          e.get("inferred_sector"), e.get("vendor_category"),
+                          e.get("same_as"), e.get("note")]
+                         for e in categories.values()])
+        # Analysis should count entities, not normalised titles: entity_key already
+        # folds the hand-merged aliases together, so this is the table to group by.
+        con.execute("""CREATE VIEW india_entities AS
+                       SELECT entity_key,
+                              any_value(vendor_category)          AS vendor_category,
+                              min(victim_original)                AS victim_example,
+                              count(*)                            AS records,
+                              bool_or(tld_in)                     AS tld_in,
+                              bool_or(country_tagged)             AS country_tagged,
+                              bool_or(tld_in OR country_tagged)   AS hard_flag,
+                              count(DISTINCT group_norm)          AS groups,
+                              count(DISTINCT source)              AS sources,
+                              min(discovered_date)                AS first_seen,
+                              max(discovered_date)                AS last_seen
+                       FROM victims_norm WHERE india_final GROUP BY entity_key""")
         con.execute("COMMIT")
     finally:
         con.close()
@@ -942,6 +1104,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--db", type=Path, default=Path("victims.duckdb"))
     parser.add_argument("--csv", type=Path, default=Path("victims_export.csv"))
     parser.add_argument("--review-queue", type=Path, default=Path("review_queue.csv"))
+    parser.add_argument("--categories", type=Path, default=Path("categories.csv"))
     parser.add_argument("--freshness-gap-days", type=int, default=7)
     parser.add_argument("--sleep", type=int, default=RW_LIVE_SLEEP_SECONDS,
                         help="seconds between ransomware.live calls (free tier: 1 req/min)")
@@ -990,9 +1153,12 @@ def main(argv: list[str] | None = None) -> int:
     apply_india_flags(rows, domain_available)
     review, appended = sync_review_queue(args.review_queue, rows)
     apply_verdicts(rows, review)
+    # Categories are keyed on the India-final set, so this must run after the verdicts.
+    categories, new_categories = sync_categories(args.categories, rows)
+    apply_categories(rows, categories)
 
     joins, joined = join_sources(rows)
-    store(args.db, args.csv, rows, dict(counts), joined, review)
+    store(args.db, args.csv, rows, dict(counts), joined, review, categories)
 
     report(rows, dict(counts), joins, freshness, args.freshness_gap_days,
            appended, borrowed, (start, end), domain_available, collapsed_variants)
@@ -1003,6 +1169,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  review queue {args.review_queue}  "
           f"({sum(1 for e in review.values() if (e.get('my_verdict') or '').strip())} "
           f"verdict(s) saved, {len(review)} row(s) total)")
+    merged = len(categories) - len(set(resolve_same_as(categories).values()))
+    print(f"  categories   {args.categories}  "
+          f"({sum(1 for e in categories.values() if (e.get('vendor_category') or '').strip())} "
+          f"labelled, {len(categories) - merged} entities"
+          f"{f' after merging {merged} alias(es)' if merged else ''}, "
+          f"{new_categories} new)")
     print(f"  raw cache    {args.raw_dir}/")
     return 0
 

@@ -489,10 +489,17 @@ python3 leaksite_india_monitor.py            # live pull, ~4 min (1 req/min rate
 python3 leaksite_india_monitor.py --offline  # rerun from ./raw cache, no network
 ```
 
-- Single file, no keys. Outputs `victims.duckdb`, `victims_export.csv`, `review_queue.csv`.
-- `review_queue.csv` holds hand verdicts (`india` / `not_india` / `india_sub`) that persist
-  across runs and override the automation. It is the one artifact here that cannot be
-  regenerated — commit it.
+- Single file, no keys. Outputs `victims.duckdb`, `victims_export.csv`, `review_queue.csv`,
+  `categories.csv`.
+- `review_queue.csv` holds hand verdicts (`india` / `not_india` / `india_sub`) per record;
+  `categories.csv` holds the hand-assigned vendor taxonomy per entity, plus `same_as` for
+  merging entities normalisation split apart. Both persist across runs and override the
+  automation. They are the only artifacts here that cannot be regenerated — commit them.
+- Count entities via the `india_entities` DuckDB view, not `count(distinct victim_norm)`:
+  the view folds `same_as` aliases together. The feeds' own `sector` field is inferred and
+  labels vendors by their customers' industry — never use it in place of `vendor_category`.
+- `python3 review_server.py` serves both hand-editors on 127.0.0.1:8765
+  (`review_editor.html` for verdicts, `category_editor.html` for categories).
 - Metadata only: no archives, no onion fetches, no magnets followed.
 - **Before touching the fetch or normalisation logic, use the `ransomware-leaks-analysis`
   skill** (`.claude/skills/`) — it carries the verified endpoints, the per-endpoint field

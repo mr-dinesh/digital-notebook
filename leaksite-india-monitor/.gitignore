@@ -4,9 +4,12 @@ raw/
 victims_export.csv
 review_queue.csv.bak
 review_queue.csv.tmp
+# backups and recovery snapshots of categories.csv — the file itself is committed
+categories.csv.*
 __pycache__/
 venv/
 
-# review_queue.csv is deliberately NOT ignored — the hand verdicts are the point.
+# review_queue.csv and categories.csv are deliberately NOT ignored — the hand verdicts
+# and the hand-assigned vendor taxonomy are the point, and neither can be regenerated.
 logs/
 .run_weekly.lock

@@ -23,9 +23,10 @@ python3 leaksite_india_monitor.py --offline  # re-run from ./raw cache, zero net
 ```
 
 Useful flags: `--days 90`, `--freshness-gap-days 7`, `--sleep 60`, `--db`, `--csv`,
-`--review-queue`, `--raw-dir`.
+`--review-queue`, `--categories`, `--raw-dir`.
 
-Outputs: `victims.duckdb`, `victims_export.csv`, `review_queue.csv`, `raw/<source>/*.json`.
+Outputs: `victims.duckdb`, `victims_export.csv`, `review_queue.csv`, `categories.csv`,
+`raw/<source>/*.json`.
 
 ## Sources, as verified against the live APIs
 
@@ -155,6 +156,7 @@ Editing 66 rows of quoted CSV by hand is miserable, so there is a small local ed
 
 ```bash
 python3 review_server.py     # then open http://127.0.0.1:8765/review_editor.html
+                             #      or http://127.0.0.1:8765/category_editor.html
 ```
 
 One row per queue entry, showing the name, group, domain, the source's country tag and
@@ -178,8 +180,48 @@ Nothing in the editor pre-fills or suggests a verdict. That column is yours.
 
 ---
 
-Commit `review_queue.csv`. It is the accumulated hand judgement and the one file here
-that cannot be regenerated.
+Commit `review_queue.csv` **and** `categories.csv`. They are the accumulated hand
+judgement and the only files here that cannot be regenerated.
+
+## Vendor categories
+
+`review_queue.csv` answers "is this India?" per record. `categories.csv` answers "what
+kind of business is this?" per entity, and is kept separate so categorising never means
+re-touching a row already adjudicated for India.
+
+Every `india_final` entity gets a row, keyed on `victim_norm`. The feeds' own `sector`
+field is carried alongside as `inferred_sector` for reference only: it is inferred rather
+than reported, and it labels vendors by their customers' industry — an engineering
+services provider comes through as Manufacturing, a healthcare BPO as Healthcare. That
+is precisely the distinction the taxonomy exists to make, so never let it stand in for a
+hand judgement.
+
+| Category | Test |
+|---|---|
+| `it_services_bpo` | Sells engineering/IT/BPO capacity to other firms |
+| `product_software` | Sells its own software or platform to end users |
+| `manufacturing_industrial` | Makes physical goods |
+| `healthcare_life_sciences` | Clinical, diagnostics, pharma |
+| `financial_services` | Banking, NBFC, payments, capital markets |
+| `other` | Everything else — education, government, logistics, retail |
+
+Edit it at `http://127.0.0.1:8765/category_editor.html`. Keys `1`-`6` set the category,
+`0` clears, `j`/`k` move, `n` note, `Ctrl+S` save. The header live-counts each bucket's
+share as you work. Unlike the review editor, **these rows may carry a pre-filled guess**
+— the page marks them, and the filter defaults to the borderline and uncertain ones.
+
+### same_as
+
+Normalisation cannot always tell that two leak-post titles are one company: a title that
+is a bare URL and one that is the plain company name strip to different keys. Merging on
+shared domain is not safe, because some records carry a lookup-site domain rather than
+the victim's own. So the merge is a hand judgement — set `same_as` to the canonical
+`victim_norm` and the alias inherits its category and stops being counted. Chains
+collapse to their endpoint; cycles and dangling pointers warn and are ignored.
+
+Count entities through the `india_entities` view, never `count(distinct victim_norm)` —
+the view folds merged aliases together. One merge in the current data is the difference
+between 74 and 73.
 
 ## Freshness gate
 
@@ -210,7 +252,9 @@ brands, and collapsing them would delete the finding.
 
 `victims.duckdb` holds `victims_norm` (one row per source/victim/group/discovered date),
 `victims_raw` (per-source record counts and fetch time), `joined` (per-victim join
-status), and `review_queue` (a snapshot of the CSV).
+status), `review_queue` and `categories` (snapshots of the two hand-maintained CSVs), and the
+`india_entities` view (one row per India entity, aliases already folded, with per-entity
+flag provenance and record counts).
 
 ```bash
 duckdb victims.duckdb "SELECT source, count(*) FROM victims_norm GROUP BY 1"
