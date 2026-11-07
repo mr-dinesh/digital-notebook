@@ -28,6 +28,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `privyRead/` | Privacy-first article reader with tracker stripping · [live](https://privyread.pages.dev/) | Cloudflare Worker + @mozilla/readability + PWA | — |
 | `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI · [live](https://s.mrdee.in/) | Cloudflare Worker + KV | — |
 | `leaksite-india-monitor/` | India-focused ransomware leak-site victim pull from ransomware.live + RansomLook, 90-day window | Python 3 + DuckDB | — |
+| `diwali-card/` | Animated Deepavali greeting card (Kannada + English), diyas light in sequence · [live](https://s.mrdee.in/diwali) | Vanilla HTML/JS (no server), Cloudflare Pages `diwali-2026` | [diwali-card](https://github.com/mr-dinesh/diwali-card) |
 | `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
 
 ¹ `slashsec` is a separate repo, not a subdirectory — local path: `/home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard/`
