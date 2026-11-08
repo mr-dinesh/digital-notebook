@@ -496,6 +496,7 @@ wrangler dev --local   # needs .dev.vars with ADMIN_PASSWORD (gitignored)
 - Secrets: `ADMIN_PASSWORD` (Bearer auth; fails closed if unset) and `GITHUB_TOKEN` (fine-grained PAT, digital-journal only, Contents RW).
 - Titles and notes are HTML- and Markdown-escaped because the blog has goldmark `unsafe = true`.
 - `compatibility_date` is capped at what local `workerd` supports (2026-04-22 with wrangler 4.83).
+- `public/index.html` loads `style.css?v=<date>` and `app.js?v=<date>`. **Bump the date (add `-2` for a second deploy that day) whenever either file changes**, or the installed PWA keeps serving its cached copy.
 
 ---
 
