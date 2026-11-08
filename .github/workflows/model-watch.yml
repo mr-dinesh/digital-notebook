@@ -1,0 +1,61 @@
+name: Model watch
+
+# Weekly: are the AI models behind the live projects still available?
+# Opens (or updates) one GitHub issue when something fails or a model is
+# about to be retired, and closes it once everything passes again.
+on:
+  schedule:
+    - cron: "30 3 * * 1"     # Mondays 09:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run checks
+        id: check
+        continue-on-error: true
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          REPORT: report.md
+        run: python3 model-watch/check.py
+
+      - name: Show report
+        if: always()
+        run: cat report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open or update issue
+        if: steps.check.outputs.needs_attention == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create model-watch --color B60205 --description "AI model retired or failing" --force
+          n=$(gh issue list --label model-watch --state open --json number -q '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body-file report.md
+          else
+            gh issue create --title "Model watch: an AI model needs attention" --label model-watch --body-file report.md
+          fi
+
+      - name: Close issue when all clear
+        if: steps.check.outputs.needs_attention == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for n in $(gh issue list --label model-watch --state open --json number -q '.[].number'); do
+            gh issue close "$n" --comment "All checks pass as of $(date -u +%F)."
+          done
+
+      # Mark the run red too, so a crash in the script itself still gets noticed
+      - name: Fail run on failures
+        if: steps.check.outcome == 'failure'
+        run: exit 1

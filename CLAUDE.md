@@ -29,6 +29,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI · [live](https://s.mrdee.in/) | Cloudflare Worker + KV | — |
 | `links-inbox/` | Phone share target → KV queue → nightly commit of a daily links page to the blog · [live](https://mrdee.in/links/) | Cloudflare Worker + KV + PWA | [links-inbox](https://github.com/mr-dinesh/links-inbox) |
 | `leaksite-india-monitor/` | India-focused ransomware leak-site victim pull from ransomware.live + RansomLook, 90-day window | Python 3 + DuckDB | — |
+| `model-watch/` | Weekly GitHub Action: checks every AI model the projects use is still offered, and probes the live AI endpoints; opens an issue on failure | Python 3 (stdlib) + GitHub Actions | — |
 | `diwali-card/` | Animated Deepavali greeting card (Kannada + English), diyas light in sequence · [live](https://s.mrdee.in/diwali) | Vanilla HTML/JS (no server), Cloudflare Pages `diwali-2026` | [diwali-card](https://github.com/mr-dinesh/diwali-card) |
 | `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
 
@@ -527,6 +528,18 @@ python3 leaksite_india_monitor.py --offline  # rerun from ./raw cache, no networ
 - **Before touching the fetch or normalisation logic, use the `ransomware-leaks-analysis`
   skill** (`.claude/skills/`) — it carries the verified endpoints, the per-endpoint field
   aliases, and the normalisation traps that silently corrupt these comparisons.
+
+---
+
+## model-watch
+
+Weekly check (`.github/workflows/model-watch.yml`, Mondays 09:00 IST, or run by hand from the Actions tab) that the AI models behind the live projects still exist.
+
+- `model-watch/watch.json` lists every model per project and one live request per deployed AI endpoint. **Update it whenever a project changes models.**
+- `check.py` (stdlib only) asks each provider's model list whether the model is still offered, flags any Workers AI model with a retirement date within 60 days, and probes the endpoints. A provider with no key set is skipped, not failed.
+- On failure or upcoming retirement it opens or comments on one issue labelled `model-watch`; it closes that issue once everything passes.
+- Repo secrets: `CLOUDFLARE_API_TOKEN` (Workers AI Read) + `CLOUDFLARE_ACCOUNT_ID`, `GROQ_API_KEY`, `GOOGLE_API_KEY`.
+- Local run: `wrangler ai models --json > /tmp/wai.json && python3 model-watch/check.py --workers-catalog /tmp/wai.json`
 
 ---
 

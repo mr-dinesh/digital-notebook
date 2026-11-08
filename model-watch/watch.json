@@ -1,0 +1,37 @@
+{
+  "_comment": "Every AI model a project depends on, plus a live request per deployed AI endpoint. Update this when a project changes models.",
+  "models": [
+    { "project": "slashsec",               "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
+    { "project": "juicesec",               "provider": "workers-ai", "model": "@cf/meta/llama-3.1-8b-instruct" },
+    { "project": "argus",                  "provider": "groq",       "model": "llama-3.3-70b-versatile" },
+    { "project": "argus",                  "provider": "groq",       "model": "llama-3.1-8b-instant" },
+    { "project": "hn_blackout",            "provider": "groq",       "model": "llama-3.3-70b-versatile" },
+    { "project": "hn_blackout",            "provider": "gemini",     "model": "gemini-2.0-flash" },
+    { "project": "yaraweave",              "provider": "groq",       "model": "llama-3.3-70b-versatile" },
+    { "project": "yaraweave",              "provider": "groq",       "model": "mixtral-8x7b-32768" },
+    { "project": "yaraweave",              "provider": "gemini",     "model": "gemini-2.5-flash" },
+    { "project": "yaraweave",              "provider": "gemini",     "model": "gemini-2.5-flash-lite" },
+    { "project": "WealthOfNationsReader",  "provider": "gemini",     "model": "gemini-2.0-flash" },
+    { "project": "ciso_articulator",       "provider": "gemini",     "model": "gemini-2.0-flash" }
+  ],
+  "probes": [
+    {
+      "project": "slashsec",
+      "url": "https://slashsec.mrdinesh.workers.dev/groq",
+      "body": { "articles": [{ "idx": 0, "title": "OpenSSH patches remote code execution bug", "excerpt": "Admins should update." }] },
+      "expect": "choices.0.message.content"
+    },
+    {
+      "project": "juicesec",
+      "url": "https://juicesec.mrdinesh.workers.dev/tutor",
+      "body": { "challenge": "SQL Injection", "mode": "hint", "question": "Where do I start?" },
+      "expect": "reply"
+    },
+    {
+      "project": "argus",
+      "url": "https://argus-proxy.mrdinesh.workers.dev/analyse",
+      "body": { "input": "Remote work makes teams less productive because people get distracted at home." },
+      "expect": "result"
+    }
+  ]
+}
