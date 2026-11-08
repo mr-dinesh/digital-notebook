@@ -27,6 +27,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `mindful/` | Privacy-respecting mood/mindfulness check-in PWA | Cloudflare Worker + D1 SQLite + Vanilla HTML/JS | — |
 | `privyRead/` | Privacy-first article reader with tracker stripping · [live](https://privyread.pages.dev/) | Cloudflare Worker + @mozilla/readability + PWA | — |
 | `url-shortener/` | Custom-slug URL shortener at s.mrdee.in + HTML admin UI · [live](https://s.mrdee.in/) | Cloudflare Worker + KV | — |
+| `links-inbox/` | Phone share target → KV queue → nightly commit of a daily links page to the blog · [live](https://mrdee.in/links/) | Cloudflare Worker + KV + PWA | [links-inbox](https://github.com/mr-dinesh/links-inbox) |
 | `leaksite-india-monitor/` | India-focused ransomware leak-site victim pull from ransomware.live + RansomLook, 90-day window | Python 3 + DuckDB | — |
 | `diwali-card/` | Animated Deepavali greeting card (Kannada + English), diyas light in sequence · [live](https://s.mrdee.in/diwali) | Vanilla HTML/JS (no server), Cloudflare Pages `diwali-2026` | [diwali-card](https://github.com/mr-dinesh/diwali-card) |
 | `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
@@ -477,6 +478,24 @@ wrangler pages deploy pages --project-name go-admin --branch main
 - Auth: `Authorization: Bearer <password>` header checked against `ADMIN_PASSWORD` secret (env var). Defaults to `"changeme"` if unset — always set the secret before deploying.
 - KV namespace binding: `URL_SHORTENER` (configure IDs in `wrangler.toml` after `wrangler kv namespace create`).
 - `admin/index.html`: single-file admin UI for Cloudflare Pages. Password stored in `sessionStorage` (cleared on tab close). Update the `WORKER_URL` constant before deploying.
+
+---
+
+## links-inbox
+
+### Deploying
+```bash
+cd links-inbox
+wrangler deploy        # https://links-inbox.mrdinesh.workers.dev
+wrangler dev --local   # needs .dev.vars with ADMIN_PASSWORD (gitignored)
+```
+
+### Architecture
+- `worker.js` serves `/api/*`; `public/` (static assets) is the installable PWA whose manifest `share_target` puts "Links" in the Android share sheet.
+- Shares are queued in KV `LINKS` as `q:<IST date>:<ms>-<rand>`. Cron `0 18 * * *` (23:30 IST) commits each date's queue to `digital-journal` as `content/links/<date>.md` via the GitHub contents API, authored as M R Dinesh (noreply). The queue is deleted only after the commit succeeds. **Publish now** in the app does the same on demand.
+- Secrets: `ADMIN_PASSWORD` (Bearer auth; fails closed if unset) and `GITHUB_TOKEN` (fine-grained PAT, digital-journal only, Contents RW).
+- Titles and notes are HTML- and Markdown-escaped because the blog has goldmark `unsafe = true`.
+- `compatibility_date` is capped at what local `workerd` supports (2026-04-22 with wrangler 4.83).
 
 ---
 
