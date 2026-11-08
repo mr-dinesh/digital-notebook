@@ -2,7 +2,8 @@
   "_comment": "Every AI model a project depends on, plus a live request per deployed AI endpoint. Update this when a project changes models.",
   "models": [
     { "project": "slashsec",               "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
-    { "project": "juicesec",               "provider": "workers-ai", "model": "@cf/meta/llama-3.1-8b-instruct" },
+    { "project": "juicesec",               "provider": "workers-ai", "model": "@cf/meta/llama-3.3-70b-instruct-fp8-fast" },
+    { "project": "juicesec",               "provider": "workers-ai", "model": "@cf/mistralai/mistral-small-3.1-24b-instruct" },
     { "project": "argus",                  "provider": "groq",       "model": "llama-3.3-70b-versatile" },
     { "project": "argus",                  "provider": "groq",       "model": "llama-3.1-8b-instant" },
     { "project": "hn_blackout",            "provider": "groq",       "model": "llama-3.3-70b-versatile" },
