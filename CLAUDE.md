@@ -289,6 +289,7 @@ wrangler pages deploy . --project-name hn-blackout --branch main
 - Tokenizer splits each headline into word tokens; matcher finds poem words via exact → case-insensitive → strip-punctuation fallback.
 - Non-selected words are blacked out with a CSS marker-stroke keyframe animation staggered over ~3.6 seconds.
 - Throttle (30 s cooldown, 10/day) is client-side only, in `localStorage`. The endpoint has no server-side rate limit.
+- **Daily bot**: `.github/workflows/post-poem.yml` (03:30 UTC = 09:00 IST) runs `bot/post_poem.py`. It fetches the HN headlines, calls the live `/api/poem`, renders a 3-panel Pillow image (front page / blacked out / poem) with fonts vendored in `bot/fonts/`, and posts it to Bluesky (`BSKY_HANDLE`, `BSKY_APP_PASSWORD`) and Mastodon (`MASTODON_ACCESS_TOKEN`, optional `MASTODON_INSTANCE_URL`). A platform is skipped if its secrets are unset. It commits `bot/posted.json`, which makes a second same-day run skip and keeps the schedule from being auto-disabled. Preview without posting: `python bot/post_poem.py --dry-run` → `bot/out/preview.png`.
 
 ---
 
