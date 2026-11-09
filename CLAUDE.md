@@ -17,7 +17,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `yaraweave/` | Browser-only YARA rule generator from threat intel feeds | Vanilla HTML/JS (no server) | [yaraweave](https://github.com/mr-dinesh/yaraweave) |
 | `argus/` | Argument intelligence tool — steelman/strawman/synthesis analysis · [live](https://argus-proxy.mrdinesh.workers.dev/) | Cloudflare Worker + Groq | [argus](https://github.com/mr-dinesh/argus) |
 | `npp_quotes/` | 247 Notepad++ quotes extracted from C++ source → JSON/txt | Python 3 (single script) | [npp-quotes](https://github.com/mr-dinesh/npp-quotes) |
-| `hn_blackout/` | Blackout poetry generated from Hacker News front-page headlines · [live](https://hn-blackout.pages.dev/) | Vanilla HTML/JS (no server) | [hn-blackout](https://github.com/mr-dinesh/hn-blackout) |
+| `hn_blackout/` | Blackout poetry generated from Hacker News front-page headlines · [live](https://hn-blackout.pages.dev/) | Cloudflare Pages + Pages Function + Workers AI | [hn-blackout](https://github.com/mr-dinesh/hn-blackout) |
 | `juicesec/` | OWASP Top 10 interactive vulnerability lab with AI tutor · [live](https://juicesec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [juicesec](https://github.com/mr-dinesh/juicesec) |
 | `checklist/` | Personal essay (non-code, no runnable components) | Markdown + image | — |
 | `afl-masterclass/` | Interactive AFL++ fuzzing tutorial with XP gamification · [live](https://afl-masterclass.pages.dev/) | Vanilla HTML/JS (no server) | [afl-masterclass](https://github.com/mr-dinesh/afl-masterclass) |
@@ -275,22 +275,20 @@ python extract.py path/to/other_raw.txt   # extract from a different source
 
 ## hn_blackout
 
-### Running
+### Running / deploying
 ```bash
-# No server needed — open directly in any browser
-xdg-open hn_blackout/blackout.html
-
-# If you hit CORS issues with the HN Firebase API:
-python3 -m http.server 8080   # then open http://localhost:8080/blackout.html
+cd hn_blackout
+wrangler pages dev .   # http://localhost:8788 — AI binding hits real Workers AI
+wrangler pages deploy . --project-name hn-blackout --branch main
 ```
 
 ### Architecture
-- Fully static single-file app (`blackout.html`). All logic runs in the browser; no backend. `index.html` is a one-line meta-redirect shim (`<meta http-equiv="refresh" content="0; url=blackout.html">`) required by Cloudflare Pages as the root entry point.
-- Fetches top 20 stories from the public HN Firebase API (no key needed).
-- Sends headlines to Groq (`llama-3.3-70b-versatile`, default) or Gemini; LLM returns JSON `{title, poem: [words]}`.
+- `blackout.html` is the UI; `index.html` is a meta-redirect shim to it (Cloudflare Pages root entry point).
+- Fetches top 20 stories from the public HN Firebase API in the browser (no key needed).
+- `functions/api/poem.js` (Pages Function): `POST /api/poem` with `{titles: [...]}` (1–30 strings, each capped at 300 chars). The prompt is built server-side, so the endpoint isn't a general LLM proxy. It calls Workers AI via the `AI` binding in `wrangler.toml`, trying `@cf/meta/llama-3.3-70b-instruct-fp8-fast` and then `@cf/mistralai/mistral-small-3.1-24b-instruct`, and returns `{title, poem: [words], model}`. Keep `model-watch/watch.json` in sync.
 - Tokenizer splits each headline into word tokens; matcher finds poem words via exact → case-insensitive → strip-punctuation fallback.
 - Non-selected words are blacked out with a CSS marker-stroke keyframe animation staggered over ~3.6 seconds.
-- Provider and API keys stored in `localStorage` — never hardcoded.
+- Throttle (30 s cooldown, 10/day) is client-side only, in `localStorage`. The endpoint has no server-side rate limit.
 
 ---
 
