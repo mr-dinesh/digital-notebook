@@ -278,12 +278,12 @@ python extract.py path/to/other_raw.txt   # extract from a different source
 ### Running / deploying
 ```bash
 cd hn_blackout
-wrangler pages dev .   # http://localhost:8788 — AI binding hits real Workers AI
-wrangler pages deploy . --project-name hn-blackout --branch main
+wrangler pages dev     # http://localhost:8788 — AI binding hits real Workers AI
+wrangler pages deploy --project-name hn-blackout --branch main
 ```
 
 ### Architecture
-- `blackout.html` is the UI; `index.html` is a meta-redirect shim to it (Cloudflare Pages root entry point).
+- `site/blackout.html` is the UI; `site/index.html` is a meta-redirect shim to it. `wrangler.toml` sets `pages_build_output_dir = "site"`, so only `site/` and `functions/` are published. Keep bot files, README etc. out of `site/`. Pages answers unknown paths with `index.html` and a 200, so check content types, not status codes, when confirming a file isn't served.
 - Fetches top 20 stories from the public HN Firebase API in the browser (no key needed).
 - `functions/api/poem.js` (Pages Function): `POST /api/poem` with `{titles: [...]}` (1–30 strings, each capped at 300 chars). The prompt is built server-side, so the endpoint isn't a general LLM proxy. It calls Workers AI via the `AI` binding in `wrangler.toml`, trying `@cf/meta/llama-3.3-70b-instruct-fp8-fast` and then `@cf/mistralai/mistral-small-3.1-24b-instruct`, and returns `{title, poem: [words], model}`. Keep `model-watch/watch.json` in sync.
 - Tokenizer splits each headline into word tokens; matcher finds poem words via exact → case-insensitive → strip-punctuation fallback.
