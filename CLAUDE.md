@@ -599,3 +599,17 @@ tags: ["tag1", "tag2"]
 - `content/journal/` and `content/reading/` — other sections.
 - `static/images/notes/` and `static/images/writing/` — post images; reference in markdown as `/images/notes/filename.jpg`.
 - `static/_headers` — Cloudflare Pages security headers (HSTS, CSP, etc.).
+- `functions/` — Pages Functions: `_middleware.js` (strips the Cloudflare beacon) and `api/blr-weather.js` (see below).
+- `static/<app>/` — standalone pages served as-is, outside Hugo: `radio/` (RadioOS), `weather/`, `mandala/`.
+
+### Weather view (mrdee.in/weather)
+
+Customisable Bangalore daily weather page · [live](https://mrdee.in/weather/) · write-up: `content/vibecoding/vibecoding-032-bangalore-weather.md`. Nav link "Weather" lives in `hugo.toml` `[menu]`.
+
+- Files: `static/weather/` (`index.html`, `weather.js`, `weather.css`, `theme.js`, `favicon.svg`) + `functions/api/blr-weather.js`. Social card: `static/og/weather.png` (a screenshot of the live page, quantised with Pillow).
+- Data: the daily CSV (`DT,High,Low,Rain`, one row per day since 1981) from Karthik S's [bangalore-weather](https://github.com/skthewimp/bangalore-weather) (MIT, Oikolab data), served at `https://weather.karthiks.co/data/bangalore_daily_weather.csv`. That host sends no CORS header, so the page fetches the same-origin proxy `GET /api/blr-weather` instead. The proxy has a fixed upstream URL with no parameters, keeps a 3 h fresh copy and a 30-day stale copy in the Cache API, and reports `x-blr-weather: hit|miss|stale`. Don't switch to the GitHub copy of the CSV: it stopped updating on 2026-10-14.
+- All stats are computed in the browser. Normal = median high/low for the calendar date over all years (matches upstream's chart); record = max/min for the date in other years; hot day > P90 of highs within ±7 days; rainy day ≥ 2.5 mm (IMD). Feb 29 folds into Feb 28 for normals, but the day card ranks a date only against the same exact date.
+- View state (window, custom range, day, up to 3 compare years, panel order/visibility) lives in the URL hash; panels and theme are also saved in `localStorage`.
+- Two looks, Almanac (light) and Instrument (dark), switched by `data-theme` on `<html>`; `theme.js` sets it in `<head>` before first paint. CSP is `script-src 'self'`, so no inline JS. Compare-year colours (`--c1..--c3`) were checked for colour-blind separation in both themes; re-validate if you change them.
+- Bump the `?v=` query on the CSS/JS links in `index.html` when either file changes.
+- Local run (no Hugo needed): `cd /home/tester/Desktop/repos/digital-journal && wrangler pages dev static --compatibility-date=2026-04-22` → `http://localhost:8788/weather/`. Local workerd rejects newer compatibility dates.
