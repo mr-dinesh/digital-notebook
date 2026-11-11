@@ -113,6 +113,8 @@ docker compose restart liquidsoap   # apply .liq config changes
 docker compose down
 ```
 
+Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`, symlinked to `~/.local/bin/radio`; "Home Radio" desktop icon runs `toggle`). `up` re-applies the icecast.xml read ACL if missing, waits for `/stream` to serve `audio/mpeg`, and prints the LAN and Tailscale listen URLs. `play <name>` rewrites the playlist line in `radio.liq` and restarts Liquidsoap. It manages icecast, liquidsoap and navidrome only, not `web`.
+
 ### Endpoints
 | Service | URL |
 |---|---|
