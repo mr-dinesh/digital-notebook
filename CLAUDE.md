@@ -124,7 +124,7 @@ docker compose down
 | Liquidsoap telnet | localhost:1234 |
 
 ### Architecture
-- **Liquidsoap** (`liquidsoap/radio.liq`): reads `/playlists/default.m3u`, normalizes audio, encodes MP3 128 kbps, streams to Icecast. Reloads playlist every 10 seconds. Exposes telnet on port 1234 for runtime control. Paths inside `.m3u` files must use the Docker container path (`/music/filename.mp3`), not the host path.
+- **Liquidsoap** (`liquidsoap/radio.liq`): reads one playlist (currently `/playlists/Sivers.m3u`, Derek Sivers' free tracks in `~/Music/Sivers`; `default.m3u` is the original mix), shuffled, normalizes audio, encodes MP3 128 kbps, streams to Icecast. Reloads playlist every 10 seconds. Exposes telnet on port 1234 for runtime control. Paths inside `.m3u` files must use the Docker container path (`/music/filename.mp3`), not the host path.
 - **Icecast** (`icecast/icecast.xml`): receives stream from Liquidsoap, serves to listeners on `/stream` mount. Max 25 clients, 5 sources.
 - **Node.js Express** (`web/server.js`): playlist manager UI. Key API routes:
   - `POST /api/control/skip` — sends telnet command to Liquidsoap (`main_playlist.skip`)
@@ -147,6 +147,7 @@ docker compose up -d
 ```
 
 - `icecast/icecast.xml.template` is the committed source; `icecast/icecast.xml` is generated (mode 600, gitignored). Re-run the script after any `.env` change.
+- Icecast in the container runs as uid 101 (`icecast2` in `moul/icecast`), so mode 600 alone makes it exit with `Permission denied` / `XML config parsing error`. The script adds a read ACL for that uid (`setfacl -m u:101:r`, needs the `acl` package); override with `ICECAST_CONTAINER_UID` if the image changes. On this host uid 101 is `uuidd`.
 - `radio.liq` reads `ICECAST_SOURCE_PASSWORD` from the environment via `environment.get()` and shuts down if it's empty. Docker Compose passes it through from `.env` and fails fast if unset.
 - Values must not contain `&`, `<`, or `>` — they land in XML text nodes unescaped. The generator rejects them.
 
