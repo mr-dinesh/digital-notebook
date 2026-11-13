@@ -10,7 +10,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 |---|---|---|---|
 | `APKanalysis/` | Android APK static security analysis | Python 3 + Flask | [Offline-APK-Analyzer](https://github.com/mr-dinesh/Offline-APK-Analyzer) |
 | `kagga_bot/` | Kannada poetry scraper / Mastodon bot data | Python 3 + BeautifulSoup | [Kagga-Bot](https://github.com/mr-dinesh/Kagga-Bot) |
-| `StreamingServer/` | Self-hosted personal radio server (`radiostack/` subdir) | Docker, Node.js, Liquidsoap, Icecast2 | [home-media-player](https://github.com/mr-dinesh/home-media-player) |
+| `StreamingServer/` | Self-hosted personal radio server (`radiostack/` subdir) | Docker, Liquidsoap, Icecast2, Navidrome | [home-media-player](https://github.com/mr-dinesh/home-media-player) |
 | `WealthOfNationsReader/` | Password-protected LLM reader for The Wealth of Nations | Python 3 + Flask + Google Gemini | [Wealth_of_Nations_Reader_App](https://github.com/mr-dinesh/Wealth_of_Nations_Reader_App) |
 | `whatsapp_links/` | Extract and categorize unique links from WhatsApp chat export ZIPs → Excel | Python 3 + Flask | [link-archive](https://github.com/mr-dinesh/link-archive) |
 | `ciso_articulator/` | Communication drill tool for security leaders (board, interview, CV modes) | Python 3 + Flask + Google Gemini | [ciso-articulator](https://github.com/mr-dinesh/ciso-articulator) |
@@ -113,13 +113,11 @@ docker compose restart liquidsoap   # apply .liq config changes
 docker compose down
 ```
 
-Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`, symlinked to `~/.local/bin/radio`; "Home Radio" desktop icon runs `toggle`). `up` re-applies the icecast.xml read ACL if missing, waits for `/stream` to serve `audio/mpeg`, and prints the LAN and Tailscale listen URLs. `play <name>` rewrites the playlist line in `radio.liq` and restarts Liquidsoap. It manages icecast, liquidsoap and navidrome only, not `web`.
+Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`, symlinked to `~/.local/bin/radio`; "Home Radio" desktop icon runs `toggle`). `up` re-applies the icecast.xml read ACL if missing, waits for `/stream` to serve `audio/mpeg`, and prints the LAN and Tailscale listen URLs. `play <name>` rewrites the playlist line in `radio.liq` and restarts Liquidsoap. It manages icecast, liquidsoap and navidrome, the whole stack (the Node.js web admin UI was removed 2026-11-13; `radio` replaces it).
 
 ### Endpoints
 | Service | URL |
 |---|---|
-| Web admin UI | http://localhost:3000 |
-| Listener player | http://localhost:3000/listen.html |
 | Raw stream | http://localhost:8000/stream |
 | Icecast admin | http://localhost:8000/admin |
 | Navidrome (music indexer) | http://localhost:4533 |
@@ -128,12 +126,6 @@ Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`
 ### Architecture
 - **Liquidsoap** (`liquidsoap/radio.liq`): reads one playlist (currently `/playlists/Sivers.m3u`, Derek Sivers' free tracks in `~/Music/Sivers`; `default.m3u` is the original mix), shuffled, normalizes audio, encodes MP3 128 kbps, streams to Icecast. Reloads playlist every 10 seconds. Exposes telnet on port 1234 for runtime control. Paths inside `.m3u` files must use the Docker container path (`/music/filename.mp3`), not the host path.
 - **Icecast** (`icecast/icecast.xml`): receives stream from Liquidsoap, serves to listeners on `/stream` mount. Max 25 clients, 5 sources.
-- **Node.js Express** (`web/server.js`): playlist manager UI. Key API routes:
-  - `POST /api/control/skip` — sends telnet command to Liquidsoap (`main_playlist.skip`)
-  - `GET /api/control/nowplaying` — returns currently playing track via telnet
-  - `GET /api/music` — lists music files; `POST /api/music/upload` — accepts uploads (multer); `DELETE /api/music/:filename`
-  - `GET/POST /api/playlists/*` — read/write `.m3u` files
-  - `GET /api/status` — proxies Icecast status XML
 - **Navidrome**: music library indexer with Subsonic-compatible API (auto-indexes `/music` volume).
 - All services communicate over Docker bridge network `radionet`.
 - Music files are mounted from `/home/tester/Music` on the host into all relevant containers. Remote listening is over Tailscale only (no port forwarding, no dynamic DNS).
