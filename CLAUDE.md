@@ -125,7 +125,7 @@ Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`
 | Liquidsoap telnet | localhost:1234 |
 
 ### Architecture
-- **Liquidsoap** (`liquidsoap/radio.liq`): reads one playlist (currently `/playlists/Sivers.m3u`, Derek Sivers' free tracks in `~/Music/Sivers`; `default.m3u` is the original mix), shuffled, normalizes audio, encodes MP3 128 kbps, streams to Icecast. Reloads playlist every 10 seconds. Exposes telnet on port 1234 for runtime control. Paths inside `.m3u` files must use the Docker container path (`/music/filename.mp3`), not the host path.
+- **Liquidsoap** (`liquidsoap/radio.liq`): reads one playlist (currently `/playlists/Sivers.m3u`, Derek Sivers' free tracks in `~/Music-Sivers`, mounted at `/sivers` in Liquidsoap only so Navidrome doesn't index them; `default.m3u` is the original mix), shuffled, normalizes audio, encodes MP3 128 kbps, streams to Icecast. Reloads playlist every 10 seconds. Exposes telnet on port 1234 for runtime control. Paths inside `.m3u` files must use the Docker container path (`/music/filename.mp3`), not the host path.
 - **Icecast** (`icecast/icecast.xml`): receives stream from Liquidsoap, serves to listeners on `/stream` mount. Max 25 clients, 5 sources.
 - **Navidrome**: music library indexer with Subsonic-compatible API (auto-indexes `/music` volume).
 - All services communicate over Docker bridge network `radionet`.
