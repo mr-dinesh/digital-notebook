@@ -30,6 +30,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `links-inbox/` | Phone share target → KV queue → nightly commit of a daily links page to the blog · [live](https://mrdee.in/links/) | Cloudflare Worker + KV + PWA | [links-inbox](https://github.com/mr-dinesh/links-inbox) |
 | `leaksite-india-monitor/` | India-focused ransomware leak-site victim pull from ransomware.live + RansomLook, 90-day window | Python 3 + DuckDB | — |
 | `model-watch/` | Weekly GitHub Action: checks every AI model the projects use is still offered, and probes the live AI endpoints; opens an issue on failure | Python 3 (stdlib) + GitHub Actions | — |
+| `lab-scripts/` | Lab-box control scripts (Hermes gateway, low-power mode, Tailscale), two-letter ssh aliases, MATE launchers; `install.sh` symlinks them into `~/.local/bin` | Bash | [lab-scripts](https://github.com/mr-dinesh/lab-scripts) (private) |
 | `diwali-card/` | Animated Deepavali greeting card (Kannada + English), diyas light in sequence · [live](https://s.mrdee.in/diwali) | Vanilla HTML/JS (no server), Cloudflare Pages `diwali-2026` | [diwali-card](https://github.com/mr-dinesh/diwali-card) |
 | `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
 
