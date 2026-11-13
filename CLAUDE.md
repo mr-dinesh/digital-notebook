@@ -136,7 +136,7 @@ Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`
   - `GET /api/status` — proxies Icecast status XML
 - **Navidrome**: music library indexer with Subsonic-compatible API (auto-indexes `/music` volume).
 - All services communicate over Docker bridge network `radionet`.
-- Music files are mounted from `/home/tester/Music` on the host into all relevant containers. The `scripts/duckdns.sh` script handles dynamic DNS updates for external access.
+- Music files are mounted from `/home/tester/Music` on the host into all relevant containers. Remote listening is over Tailscale only (no port forwarding, no dynamic DNS).
 
 ### Credentials
 Secrets live in `radiostack/.env` (gitignored) — nothing is hardcoded in the configs.
