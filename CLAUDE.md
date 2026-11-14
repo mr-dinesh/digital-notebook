@@ -115,7 +115,7 @@ docker compose restart liquidsoap   # apply .liq config changes
 docker compose down
 ```
 
-Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`, symlinked to `~/.local/bin/radio`; "Home Radio" desktop icon runs `toggle`). `up` re-applies the icecast.xml read ACL if missing, waits for `/stream` to serve `audio/mpeg`, and prints the LAN and Tailscale listen URLs. `play <name>` rewrites the playlist line in `radio.liq` and restarts Liquidsoap. It manages icecast, liquidsoap and navidrome, the whole stack (the Node.js web admin UI was removed 2026-11-13; `radio` replaces it).
+Shortcut: `radio up|down|status|now|skip|play [name]|toggle` (`scripts/radio.sh`, symlinked to `~/.local/bin/radio`; "Home Radio" desktop icon runs `toggle`). `up` re-applies the icecast.xml read ACL if missing, waits for `/stream` to serve `audio/mpeg`, and prints the LAN and Tailscale listen URLs. `play <name>` rewrites the playlist line in `radio.liq` and restarts Liquidsoap. `toggle` holds a `flock` on `$XDG_RUNTIME_DIR/radio-toggle.lock`, so a second icon click while the first is still starting is ignored. Without the lock, the second click saw the stream live and stopped it again. Use `radio up` in scripts, since it only ever starts. It manages icecast, liquidsoap and navidrome, the whole stack (the Node.js web admin UI was removed 2026-11-13; `radio` replaces it).
 
 ### Endpoints
 | Service | URL |
