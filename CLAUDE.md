@@ -32,6 +32,7 @@ This monorepo lives at [github.com/mr-dinesh/digital-notebook](https://github.co
 | `model-watch/` | Weekly GitHub Action: checks every AI model the projects use is still offered, and probes the live AI endpoints; opens an issue on failure | Python 3 (stdlib) + GitHub Actions | — |
 | `lab-scripts/` | Lab-box control scripts (Hermes gateway, low-power mode, Tailscale), two-letter ssh aliases, MATE launchers; `install.sh` symlinks them into `~/.local/bin` | Bash | [lab-scripts](https://github.com/mr-dinesh/lab-scripts) (private) |
 | `diwali-card/` | Animated Deepavali greeting card (Kannada + English), diyas light in sequence · [live](https://s.mrdee.in/diwali) | Vanilla HTML/JS (no server), Cloudflare Pages `diwali-2026` | [diwali-card](https://github.com/mr-dinesh/diwali-card) |
+| `wisdombot/` | Private Telegram bot: answers a real-life problem with one verbatim Stoic quote (Marcus, Seneca, Epictetus) + a short "Do:" line | Cloudflare Worker + Workers AI + Vectorize | — |
 | `slashsec` ¹ | Slashdot-style cybersecurity news dashboard — live RSS + AI summaries · [live](https://slashsec.mrdinesh.workers.dev/) | Cloudflare Worker + Workers AI | [SlashSec...](https://github.com/mr-dinesh/SlashSec_style-Infosec-RSS-Dashboard) |
 
 ¹ `slashsec` is a separate repo, not a subdirectory — local path: `/home/tester/Desktop/repos/SlashSec_style-Infosec-RSS-Dashboard/`
@@ -535,6 +536,28 @@ Weekly check (`.github/workflows/model-watch.yml`, Mondays 09:00 IST, or run by 
 - On failure or upcoming retirement it opens or comments on one issue labelled `model-watch`; it closes that issue once everything passes.
 - Repo secrets: `CLOUDFLARE_API_TOKEN` (Workers AI Read) + `CLOUDFLARE_ACCOUNT_ID`, `GROQ_API_KEY`, `GOOGLE_API_KEY`.
 - Local run: `wrangler ai models --json > /tmp/wai.json && python3 model-watch/check.py --workers-catalog /tmp/wai.json`
+
+---
+
+## wisdombot
+
+### Running / deploying
+```bash
+cd wisdombot
+python3 -I build/fetch.py /tmp/wisdom-raw         # Gutenberg + Wikisource (429s; ~15 min)
+python3 -I build/split.py /tmp/wisdom-raw corpus   # passages, units, public/p/*.json shards
+wrangler deploy                                    # https://wisdombot.mrdinesh.workers.dev
+INGEST_TOKEN=... python3 -I build/ingest.py https://wisdombot.mrdinesh.workers.dev
+```
+
+### Architecture
+- `worker.js`: `POST /tg` (Telegram webhook; `X-Telegram-Bot-Api-Secret-Token` + `ALLOWED_USER_IDS`, strangers ignored silently), `/health` (model-watch probe), `POST /admin/ingest` (Bearer `INGEST_TOKEN`; embeds units into Vectorize).
+- **The model never writes quote text.** Query → `@cf/baai/bge-small-en-v1.5` → Vectorize `wisdombot-stoic` (384 dims, top 50, max 7 per author → 20 candidates) → `llama-3.3-70b-instruct-fp8-fast` (fallback `mistral-small-3.1-24b-instruct`) picks one candidate number and writes the `Do:` line → the Worker prints the stored text. Keep `model-watch/watch.json` in sync.
+- Corpus: Long's Meditations (Gutenberg **15877**; #2680 is Casaubon), Long's Epictetus (10661), Gummere's Seneca Letters (Wikisource). Units are 1–2 sentences of 8–40 words, cut only at sentence boundaries. Units that lean on context (start with "For", "But", "This"…), questions and dialogue fragments are not indexed.
+- Safety: `corpus/excluded.txt` plus the `HARMFUL` regex in `split.py` keep out passages that present suicide as a way out. A crisis message gets the Tele-MANAS helpline (14416) and no quote.
+- Full passages for `/source` are static assets (`corpus/public/p/<shard>.json`), not KV: the free plan allows only 1,000 KV writes a day. KV `STATE` holds only the last question (1 h TTL) for `/more`.
+- Secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_WEBHOOK_SECRET`, `ALLOWED_USER_IDS` (plural; a typo makes the bot silent), `INGEST_TOKEN`. Set them in a normal terminal; `wrangler secret put` prompts don't work through `!`.
+- Replies only when asked: one quote + `Do:`; small talk gets a one-line nudge; there is no cron.
 
 ---
 
