@@ -1,0 +1,25 @@
+# Database dumps and site backups — contain password hashes and personal data.
+# Never commit these.
+*.sql
+*.sql.gz
+*.tar.gz
+*.zip
+webtrees_db_*
+webtrees_files_*
+
+# Secrets
+.env
+.dev.vars
+*.pem
+*.key
+
+# Local build/venv noise
+venv/
+__pycache__/
+*.pyc
+node_modules/
+.wrangler/
+
+# Private lab-box notes (disk layout, UUIDs) — keep local, repo is public
+nvme-root-migration.md
+trixie-upgrade-session-summary.md
